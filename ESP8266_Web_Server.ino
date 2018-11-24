@@ -1,6 +1,7 @@
 // Minimal NTP Time Demo with DST correction
 
 #include <ESP8266WiFi.h>
+#include <EEPROM.h>
 #include <Ticker.h>
 #include <time.h>
 #include <simpleDSTadjust.h>
@@ -33,13 +34,18 @@ String header;
 String output1State = "off";
 String output2State = "off";
 boolean auto_switch_by_sun = false;
-int auto_switch_off_hour = 21; //21:00 Uhr local time
+int auto_switch_off_hour = 0; //21:00 Uhr local time
+
 
 // Assign output variables to GPIO pins
 const int output1 = 0; //GPIO 0
 const int output2 = 2; //GPIO 2
 
+//EEprom statements
 const int eeprom_size = 32 ; //Size can be anywhere between 4 and 4096 bytes
+
+int auto_switch_by_sun_eeprom_address = 0;//boolean value
+int auto_switch_off_hour_eeprom_address = 2;//int value
 //-----------------------------------------------------------------
 
 Ticker ticker1;
@@ -69,12 +75,20 @@ String time_string = "";
 String date_string = "";
 String daylight_string = "";
 
-String versionsname = "(v0.9-beta)";
+String versionsname = "(v0.9.1-beta)";
 
 //-----------------------------------------------------------------
 void setup() {
+
+  delay(2000);
+
   Serial.begin(115200);
   Serial.setDebugOutput(false);
+
+  //read config
+  auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
+  auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
+  Serial.println("Load Config");
 
   // Initialize the output variables as outputs
   pinMode(output2, OUTPUT);
@@ -317,29 +331,41 @@ void website() {
               Serial.println("GPIO 2 on");
               output2State = "on";
               digitalWrite(output2, HIGH);
+
             } else if (header.indexOf("GET /2/off") >= 0) {
               Serial.println("GPIO 2 off");
               output2State = "off";
               digitalWrite(output2, LOW);
+
             } else if (header.indexOf("GET /1/on") >= 0) {
               Serial.println("GPIO 1 on");
               output1State = "on";
               digitalWrite(output1, HIGH);
+
             } else if (header.indexOf("GET /1/off") >= 0) {
               Serial.println("GPIO 1 off");
               output1State = "off";
               digitalWrite(output1, LOW);
+
             } else if (header.indexOf("GET /3/off") >= 0) {
+              write_eeprom_bool(auto_switch_by_sun_eeprom_address, false);
+              auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
               Serial.println("Auto Modus off");
-              auto_switch_by_sun = false;
+
             } else if (header.indexOf("GET /3/on") >= 0) {
+              write_eeprom_bool(auto_switch_by_sun_eeprom_address, true);
+              auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
               Serial.println("Auto Modus on");
-              auto_switch_by_sun = true;
+
             } else if (header.indexOf("Switch+off+Time=") >= 0) {  //GET /%20action_page.php?Switch+off+Time=16 HTTP/1.1
               int index = header.indexOf("=");
               index += 1;
-              auto_switch_off_hour = (header.substring(index, index + 2)).toInt();
-              Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour));
+              int value = (header.substring(index, index + 2)).toInt();
+              if (value >= 16 && value <= 23) {
+                write_eeprom_int(auto_switch_off_hour_eeprom_address, value);
+                auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
+                Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour));
+              }
             }
 
             // Display the HTML web page
@@ -418,5 +444,124 @@ void website() {
     Serial.println("Client disconnected.");
     Serial.println("");
   }
+}
+//-----------------------------------------------------------------
+void write_eeprom_string(int address, String value) {
+
+  EEPROM.begin(eeprom_size);
+  int len = value.length();
+  len++;
+  if (len < 16) {
+    int address_end = address + len;
+    char buf[len];
+    byte count = 0;
+    value.toCharArray(buf, len);
+    for (int i = address ; i < address_end ; i++) {
+      EEPROM.write(i, buf[count]);
+      count++;
+    }
+  }
+  EEPROM.end();
+}
+//-----------------------------------------------------------------
+void write_eeprom_long(int address, long value) {
+
+  EEPROM.begin(eeprom_size);
+  byte four = (value & 0xFF);
+  byte three = ((value >> 8) & 0xFF);
+  byte two = ((value >> 16) & 0xFF);
+  byte one = ((value >> 24) & 0xFF);
+
+  EEPROM.write(address, four);
+  EEPROM.write(address + 1, three);
+  EEPROM.write(address + 2, two);
+  EEPROM.write(address + 3, one);
+  EEPROM.end();
+}
+//-----------------------------------------------------------------
+void write_eeprom_int(int address, int value) {
+
+  EEPROM.begin(eeprom_size);
+  EEPROM.write(address, highByte(value));
+  EEPROM.write(address + 1, lowByte(value));
+  EEPROM.end();
+}
+//-----------------------------------------------------------------
+void write_eeprom_byte(int address, byte value) {
+
+  EEPROM.begin(eeprom_size);
+  //EEPROM.write(address, value);
+  EEPROM.write(address, value);
+  EEPROM.end();
+}
+//-----------------------------------------------------------------
+void write_eeprom_bool(int address, boolean value) {
+
+  EEPROM.begin(eeprom_size);
+  //EEPROM.write(address, value);
+  if (value == true)EEPROM.write(address, 1);
+  if (value == false)EEPROM.write(address, 0);
+  EEPROM.end();
+}
+//-----------------------------------------------------------------
+String read_eeprom_string(int address) {
+
+  EEPROM.begin(eeprom_size);
+  String value;
+  byte count = 0;
+  char buf[16];
+  for (int i = address ; i < (address + 15) ; i++) {
+    buf[count] = EEPROM.read(i);
+    if (buf[count] == 0) break; //endmark of string
+    value += buf[count];
+    count++;
+  }
+  EEPROM.end();
+  return value;
+}
+//-----------------------------------------------------------------
+long read_eeprom_long(int address) {
+
+  EEPROM.begin(eeprom_size);
+  long four = EEPROM.read(address);
+  long thre = EEPROM.read(address + 1);
+  long two = EEPROM.read(address + 2);
+  long one = EEPROM.read(address + 3);
+  EEPROM.end();
+  return ((four << 0) & 0xFF) + ((thre << 8) & 0xFFFF) + ((two << 16) & 0xFFFFFF) + ((one << 24) & 0xFFFFFFFF);
+}
+//-----------------------------------------------------------------
+int read_eeprom_int(int address) {
+
+  EEPROM.begin(eeprom_size);
+  int value;
+  int value_1;
+  value = EEPROM.read(address); //highByte(value));
+  value = value << 8;
+  value_1 = EEPROM.read(address + 1); //lowByte(value));
+  value = value + value_1;
+  EEPROM.end();
+  return value;
+}
+//-----------------------------------------------------------------
+byte read_eeprom_byte(int address) {
+
+  EEPROM.begin(eeprom_size);
+  byte value;
+  value = EEPROM.read(address);
+  EEPROM.end();
+  return value;
+}
+//-----------------------------------------------------------------
+boolean read_eeprom_bool(int address) {
+
+  EEPROM.begin(eeprom_size);
+  byte value;
+  boolean bool_value;
+  value = EEPROM.read(address);
+  if (value == 1)bool_value = true;
+  if (value != 1)bool_value = false;
+  return bool_value;
+  EEPROM.end();
 }
 //-----------------------------------------------------------------
