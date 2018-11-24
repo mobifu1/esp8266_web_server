@@ -1,7 +1,6 @@
 // Minimal NTP Time Demo with DST correction
 
 #include <ESP8266WiFi.h>
-#include <EEPROM.h>
 #include <Ticker.h>
 #include <time.h>
 #include <simpleDSTadjust.h>
@@ -22,7 +21,7 @@ struct dstRule StartRule = {"CEST", Last, Sun, Mar, 2, 3600};    // Daylight tim
 struct dstRule EndRule = {"CET", Last, Sun, Oct, 3, 1800};       // Standard time = UTC/GMT +1 hour
 
 const char* ssid = "DD8ZJ";
-const char* password = "44876708218574845522";
+const char* password = "password";
 
 // Set web server port number to 80
 WiFiServer server(80);
@@ -34,7 +33,7 @@ String header;
 String output1State = "off";
 String output2State = "off";
 boolean auto_switch_by_sun = false;
-int auto_switch_off_hour = 21; //22:00 Uhr
+int auto_switch_off_hour = 21; //21:00 Uhr local time
 
 // Assign output variables to GPIO pins
 const int output1 = 0; //GPIO 0
@@ -68,6 +67,9 @@ String sunrise_string = "";
 String sunset_string = "";
 String time_string = "";
 String date_string = "";
+String daylight_string = "";
+
+String versionsname = "(v0.9-beta)";
 
 //-----------------------------------------------------------------
 void setup() {
@@ -234,8 +236,21 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
   int sundown_hour = int(sunset);
   int sundown_minute = int((sunset - sundown_hour) * 60);
 
+  //calculation daylight
+  int minutes_of_day = ((hour_ * 60) + minute_);
+  int minutes_of_sunrise = ((sunrise_hour * 60) + sunrise_minute);
+  int minutes_of_sundown = ((sundown_hour * 60) + sundown_minute);
+
+  if ((minutes_of_day >= minutes_of_sunrise)  && (minutes_of_day <= minutes_of_sundown)) {
+    daylight = true;
+  }
+  else {
+    daylight = false;
+  }
+
   if (daylight == true) {
     //Serial.println("now is Day");
+    daylight_string = "Daylight";
     if (auto_switch_by_sun == true) {
       output1State = "off";
       output2State = "off";
@@ -243,6 +258,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
   }
   if (daylight == false) {
     //Serial.println("now is Night");
+    daylight_string = "Night";
     if (auto_switch_by_sun == true) {
       if (hour_ < auto_switch_off_hour) {
         output1State = "on";
@@ -296,7 +312,7 @@ void website() {
             client.println("Connection: close");
             client.println();
 
-            // turns the GPIOs on and off
+            // handle the incoming information from the website
             if (header.indexOf("GET /2/on") >= 0) {
               Serial.println("GPIO 2 on");
               output2State = "on";
@@ -340,7 +356,7 @@ void website() {
             client.println("<meta http-equiv=\"refresh\" content=\"30\">\r\n");
 
             // Web Page Heading
-            client.println("<body><h1>ESP8266 Web-Server</h1>");
+            client.println("<body><h1>ESP8266 Web-Server " + versionsname + "</h1>");
 
             // Display current state, and ON/OFF buttons for GPIO 1
             client.println("<p>GPIO 1 - State " + output1State + "</p>");
@@ -360,18 +376,21 @@ void website() {
               client.println("<p><a href=\"/2/off\"><button class=\"button button2\">ON</button></a></p>");
             }
 
-            client.println("<p>---------------------------------------------</p>");
+            //time and sunset , sunrise informations
+            client.println("<p>-----------------------------------------------------------------------------------</p>");
             client.println("<p>" + time_string + " / " + date_string + "</p>");
-            client.println("<p>" + sunrise_string + " / " + sunset_string + "</p>");
-            client.println("<p>---------------------------------------------</p>");
-            client.println("<p>Auto switch on by Sunset / Auto switch off at: " + String(auto_switch_off_hour) + ":00" + "</p>");
+            client.println("<p>" + sunrise_string + " / " + sunset_string + " / " + daylight_string + "</p>");
+            client.println("<p>-----------------------------------------------------------------------------------</p>");
+            client.println("<p>Auto switch on at Sunset / Auto switch off at: " + String(auto_switch_off_hour) + ":00" + "</p>");
 
+            //auto switch on button (by sunset)
             if (auto_switch_by_sun == false) { //button for auto_switch_by_sun
               client.println("<p><a href=\"/3/on\"><button class=\"button\">OFF</button></a></p>");
             } else {
               client.println("<p><a href=\"/3/off\"><button class=\"button button2\">ON</button></a></p>");
             }
 
+            //inputform to define the auto switch off time
             client.println("<form action=\" / action_page.php\">");
             client.println("Time off (between 16 and 23):");
             client.println("<input type=\"number\" name=\"Switch off Time\" min=\"16\" max=\"23\">");
@@ -399,31 +418,5 @@ void website() {
     Serial.println("Client disconnected.");
     Serial.println("");
   }
-}
-//-----------------------------------------------------------------
-void read_eeprom_value(int address) {
-
-  EEPROM.begin(eeprom_size);
-  int value = EEPROM.read(address);
-  EEPROM.end();
-  Serial.print("EEprom: ");
-  Serial.print(address);
-  Serial.print(" = ");
-  Serial.println(value);
-}
-//-----------------------------------------------------------------
-void write_eeprom_value(int address) {
-
-  EEPROM.begin(eeprom_size);
-  int value;
-  EEPROM.write(address, value);
-  EEPROM.end();
-}
-//-----------------------------------------------------------------
-void clear_eeprom_value(int address) {
-
-  EEPROM.begin(eeprom_size);
-  EEPROM.write(address, 0);
-  EEPROM.end();
 }
 //-----------------------------------------------------------------
