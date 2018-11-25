@@ -54,8 +54,8 @@ int32_t tick;
 bool readyForNtpUpdate = false;// flag changed in the ticker function to start NTP Update
 simpleDSTadjust dstAdjusted(StartRule, EndRule);// Setup simpleDSTadjust Library rules
 
-float lat = 53.0;
-float lon = 10.0;
+float lat = 53.48;//my home location
+float lon = 10.23;//needed for exact local sunrise / sunset
 
 int year_ ;
 int  month_ ;
@@ -64,18 +64,17 @@ int  hour_ ;
 int  minute_ ;
 int  second_ ;
 
-int time_diff_to_greenwich; // add to UTC > hour 1=winter  2=sommer
-boolean daylight; //Day / Night
+int time_diff_to_greenwich; // add to UTC > hour 1=winter  2=sommer (timezone: Berlin,Paris)
+boolean daylight;           //Day / Night
+String am_pm = "";          //AM / PM
+String european_time = "";  //CET / CEST
+String sunrise_string = ""; //build for the website
+String sunset_string = "";  //build for the website
+String time_string = "";    //build for the website
+String date_string = "";    //build for the website
+String daylight_string = "";//build for the website
 
-String am_pm = ""; //AM / PM
-String european_time = ""; //CET / CEST
-String sunrise_string = "";
-String sunset_string = "";
-String time_string = "";
-String date_string = "";
-String daylight_string = "";
-
-String versionsname = "(v0.9.1-beta)";
+String versionsname = "(v0.9.2-beta)";
 
 //-----------------------------------------------------------------
 void setup() {
@@ -85,16 +84,16 @@ void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(false);
 
-  //read config
+  //Load config
   auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
   auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
   Serial.println("Load Config");
 
-  // Initialize the output variables as outputs
+  //Initialize the output variables as outputs
   pinMode(output2, OUTPUT);
   pinMode(output1, OUTPUT);
 
-  // Set outputs to LOW
+  //Set outputs to LOW
   digitalWrite(output1, LOW);
   digitalWrite(output2, LOW);
 
@@ -107,11 +106,11 @@ void setup() {
   }
 
   Serial.println("\nDone");
-  updateNTP(); // Init the NTP time
-  printTime(0); // print initial time now.
+  updateNTP();  //Init the NTP time
+  printTime(0); //print initial time now.
 
-  tick = NTP_UPDATE_INTERVAL_SEC; // Init the NTP update countdown ticker
-  ticker1.attach(1, secTicker); // Run a 1 second interval Ticker
+  tick = NTP_UPDATE_INTERVAL_SEC; //Init the NTP update countdown ticker
+  ticker1.attach(1, secTicker);   //Run a 1 second interval Ticker
   Serial.print("Next NTP Update: ");
   printTime(tick);
 
@@ -133,12 +132,12 @@ void loop() {
     printTime(tick);
   }
 
-  delay(100);  // to reduce upload failures
+  delay(100);  //To reduce upload failures
 }
 //-----------------------------------------------------------------
 //----------------------- Functions -------------------------------
 //-----------------------------------------------------------------
-void secTicker() {// NTP timer update ticker
+void secTicker() {//NTP timer update ticker
 
   tick--;
   if (tick <= 0)
@@ -147,7 +146,7 @@ void secTicker() {// NTP timer update ticker
     tick = NTP_UPDATE_INTERVAL_SEC; // Re-arm
   }
 
-  printTime(0);  // Uncomment if you want to see time printed every second
+  printTime(0);  //Uncomment if you want to see time printed every second
 }
 //-----------------------------------------------------------------
 void updateNTP() {
@@ -250,7 +249,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
   int sundown_hour = int(sunset);
   int sundown_minute = int((sunset - sundown_hour) * 60);
 
-  //calculation daylight
+  //Calculation daylight
   int minutes_of_day = ((hour_ * 60) + minute_);
   int minutes_of_sunrise = ((sunrise_hour * 60) + sunrise_minute);
   int minutes_of_sundown = ((sundown_hour * 60) + sundown_minute);
@@ -319,14 +318,14 @@ void website() {
           // if the current line is blank, you got two newline characters in a row.
           // that's the end of the client HTTP request, so send a response:
           if (currentLine.length() == 0) {
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-            // and a content-type so the client knows what's coming, then a blank line:
+            //HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+            //and a content-type so the client knows what's coming, then a blank line:
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
 
-            // handle the incoming information from the website
+            //Handle the incoming information from the website user
             if (header.indexOf("GET /2/on") >= 0) {
               Serial.println("GPIO 2 on");
               output2State = "on";
@@ -368,23 +367,24 @@ void website() {
               }
             }
 
-            // Display the HTML web page
+            //Display the HTML web page
             client.println("<!DOCTYPE html><html>");
             client.println("<html><head><title>ESP8266 Web-Server</title></head><body>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
             client.println("<link rel=\"icon\" href=\"data:,\">");
-            // CSS to style the on/off buttons
-            // Feel free to change the background-color and font-size attributes to fit your preferences
+            
+            //CSS to style the on/off buttons
+            //Feel free to change the background-color and font-size attributes to fit your preferences
             client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
             client.println(".button { background-color: #195B6A; border: none; color: white; padding: 16px 40px;");
             client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
             client.println(".button2 {background-color: #77878A;}</style></head>");
             client.println("<meta http-equiv=\"refresh\" content=\"30\">\r\n");
 
-            // Web Page Heading
+            //Web Page Heading
             client.println("<body><h1>ESP8266 Web-Server " + versionsname + "</h1>");
 
-            // Display current state, and ON/OFF buttons for GPIO 1
+            //Display current state, and ON/OFF buttons for GPIO 1
             client.println("<p>GPIO 1 - State " + output1State + "</p>");
             // If the output1State is off, it displays the OFF button
             if (output1State == "off") {
@@ -393,7 +393,7 @@ void website() {
               client.println("<p><a href=\"/1/off\"><button class=\"button button2\">ON</button></a></p>");
             }
 
-            // Display current state, and ON/OFF buttons for GPIO 2
+            //Display current state, and ON/OFF buttons for GPIO 2
             client.println("<p>GPIO 2 - State " + output2State + "</p>");
             // If the output2State is off, it displays the OFF button
             if (output2State == "off") {
@@ -403,10 +403,10 @@ void website() {
             }
 
             //time and sunset , sunrise informations
-            client.println("<p>-----------------------------------------------------------------------------------</p>");
+            client.println("<p>----------------------------------------------------------------------------</p>");
             client.println("<p>" + time_string + " / " + date_string + "</p>");
             client.println("<p>" + sunrise_string + " / " + sunset_string + " / " + daylight_string + "</p>");
-            client.println("<p>-----------------------------------------------------------------------------------</p>");
+            client.println("<p>----------------------------------------------------------------------------</p>");
             client.println("<p>Auto switch on at Sunset / Auto switch off at: " + String(auto_switch_off_hour) + ":00" + "</p>");
 
             //auto switch on button (by sunset)
@@ -425,9 +425,9 @@ void website() {
 
             client.println("</body></html>");
 
-            // The HTTP response ends with another blank line
+            //The HTTP response ends with another blank line
             client.println();
-            // Break out of the while loop
+            //Break out of the while loop
             break;
           } else { // if you got a newline, then clear currentLine
             currentLine = "";
@@ -437,9 +437,10 @@ void website() {
         }
       }
     }
-    // Clear the header variable
+    //Clear the header variable
     header = "";
-    // Close the connection
+
+    //Close the connection
     client.stop();
     Serial.println("Client disconnected.");
     Serial.println("");
