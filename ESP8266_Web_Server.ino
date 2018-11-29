@@ -23,7 +23,7 @@ struct dstRule StartRule = {"CEST", Last, Sun, Mar, 2, 3600};    // Daylight tim
 struct dstRule EndRule = {"CET", Last, Sun, Oct, 3, 1800};       // Standard time = UTC/GMT +1 hour
 
 char* ssid = "ssid------------";
-char* password = "password------------";//44876708218574845522
+char* password = "password------------";
 
 
 // Set web server port number to 80
@@ -92,7 +92,7 @@ String date_string = "";    //build for the website
 String daylight_string = "";//build for the website
 
 String web_server_name = "ESP8266 Web-Server ";
-String versionsname = "(v0.9.4-beta)";
+String versionsname = "(v0.9.5-r)";
 boolean debuging = false;
 
 //-----------------------------------------------------------------
