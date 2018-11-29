@@ -1,4 +1,5 @@
 // Web-Server to switch relais by sunset or manual via Web-Site
+// Arduino/Tools/Erase Flash:All Flash Contents !!!
 
 #include <ESP8266WiFi.h>
 #include <EEPROM.h>
@@ -21,8 +22,9 @@
 struct dstRule StartRule = {"CEST", Last, Sun, Mar, 2, 3600};    // Daylight time = UTC/GMT +2 hours
 struct dstRule EndRule = {"CET", Last, Sun, Oct, 3, 1800};       // Standard time = UTC/GMT +1 hour
 
-const char* ssid = "DD8ZJ";
-const char* password = "password";
+char* ssid = "ssid------------";
+char* password = "password------------";//44876708218574845522
+
 
 // Set web server port number to 80
 WiFiServer server(80);
@@ -36,6 +38,10 @@ boolean output2_state;
 String output1_state_string;
 String output2_state_string;
 
+//Buttons web site activation
+boolean button1 = true;
+boolean button2 = false;
+
 boolean auto_switch_by_sun = false;
 int auto_switch_on_hour = 16;//16:00 Uhr local time
 int auto_switch_off_hour = 21; //21:00 Uhr local time
@@ -45,10 +51,18 @@ const int output1 = 0; //GPIO 0
 const int output2 = 2; //GPIO 2
 
 //EEprom statements
-const int eeprom_size = 32 ; //Size can be anywhere between 4 and 4096 bytes
+const int eeprom_size = 128 ; //Size can be anywhere between 4 and 4096 bytes
 
 int auto_switch_by_sun_eeprom_address = 0;//boolean value
-int auto_switch_off_hour_eeprom_address = 2;//int value
+int debuging_eeprom_address = 1;//boolean value
+int button1_eeprom_address = 2;//boolean value
+int button2_eeprom_address = 3;//boolean value
+int auto_switch_off_hour_eeprom_address = 4;//int value
+int ssid_eeprom_address = 8;//string max 22
+int password_eeprom_address = 32;//string max 32
+int web_server_name_eeprom_address = 65;//string max 32
+
+String serial_line_0;//read bytes from serial port 0
 //-----------------------------------------------------------------
 
 Ticker ticker1;
@@ -77,8 +91,9 @@ String time_string = "";    //build for the website
 String date_string = "";    //build for the website
 String daylight_string = "";//build for the website
 
-String versionsname = "(v0.9.3-beta)";
-boolean debugging = false;
+String web_server_name = "ESP8266 Web-Server ";
+String versionsname = "(v0.9.4-beta)";
+boolean debuging = false;
 
 //-----------------------------------------------------------------
 void setup() {
@@ -103,17 +118,18 @@ void setup() {
   WiFi.begin(ssid, password);
   Serial.println(F("\nConnecting to WiFi"));
   while (WiFi.status() != WL_CONNECTED) {
-    if (debugging == true) Serial.print(".");
+    Serial.print(".");
+    read_serial_port_0();
     delay(1000);
   }
 
-  if (debugging == true) Serial.println(F("\nDone"));
+  Serial.println(F("\nDone"));
   updateNTP();  //Init the NTP time
   printTime(0); //print initial time now.
 
   tick = NTP_UPDATE_INTERVAL_SEC; //Init the NTP update countdown ticker
   ticker1.attach(1, secTicker);   //Run a 1 second interval Ticker
-  if (debugging == true) Serial.print(F("Next NTP Update: "));
+  if (debuging == true) Serial.print(F("Next NTP Update: "));
   printTime(tick);
 
   server.begin();//Web-Server
@@ -121,6 +137,7 @@ void setup() {
 //-----------------------------------------------------------------
 void loop() {
 
+  read_serial_port_0();
   website();
 
   if (readyForNtpUpdate)
@@ -128,9 +145,9 @@ void loop() {
     readyForNtpUpdate = false;
     printTime(0);
     updateNTP();
-    if (debugging == true) Serial.print(F("\nUpdated time from NTP Server: "));
+    if (debuging == true) Serial.print(F("\nUpdated time from NTP Server: "));
     printTime(0);
-    if (debugging == true) Serial.print(F("Next NTP Update: "));
+    if (debuging == true) Serial.print(F("Next NTP Update: "));
     printTime(tick);
   }
 
@@ -157,7 +174,7 @@ void updateNTP() {
 
   delay(500);
   while (!time(nullptr)) {
-    if (debugging == true) Serial.print(F("#"));
+    if (debuging == true) Serial.print(F("#"));
     delay(1000);
   }
 }
@@ -171,7 +188,7 @@ void printTime(time_t offset) {
 
   int hour = (timeinfo->tm_hour + 11) % 12 + 1; // take care of noon and midnight
   sprintf(buf, "%02d/%02d/%04d %02d:%02d:%02d%s %s\n", timeinfo->tm_mon + 1, timeinfo->tm_mday, timeinfo->tm_year + 1900, hour, timeinfo->tm_min, timeinfo->tm_sec, timeinfo->tm_hour >= 12 ? "pm" : "am", dstAbbrev);
-  //Serial.print(buf);
+  if (debuging == true) Serial.print(buf);
   String line = buf;
   time_split_parameter (line);
   sunrise (lat, lon, time_diff_to_greenwich);//Hamburg 53,5° 10,0°
@@ -309,12 +326,12 @@ void website() {
   WiFiClient client = server.available();   // Listen for incoming clients
 
   if (client) {                             // If a new client connects,
-    Serial.println("New Client.");          // print a message out in the serial port
+    if (debuging == true) Serial.println("New Client.");          // print a message out in the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
     while (client.connected()) {            // loop while the client's connected
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
-        if (debugging == true) Serial.write(c);                    // print it out the serial monitor
+        if (debuging == true) Serial.write(c);                    // print it out the serial monitor
         header += c;
         if (c == '\n') {                    // if the byte is a newline character
           // if the current line is blank, you got two newline characters in a row.
@@ -351,12 +368,12 @@ void website() {
             } else if (header.indexOf("GET /3/off") >= 0) {
               write_eeprom_bool(auto_switch_by_sun_eeprom_address, false);
               auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
-              Serial.println("Auto Modus off");
+              if (debuging == true) Serial.println("Auto Modus off");
 
             } else if (header.indexOf("GET /3/on") >= 0) {
               write_eeprom_bool(auto_switch_by_sun_eeprom_address, true);
               auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
-              Serial.println("Auto Modus on");
+              if (debuging == true) Serial.println("Auto Modus on");
 
             } else if (header.indexOf("Switch+off+Time=") >= 0) {  //GET /%20action_page.php?Switch+off+Time=16 HTTP/1.1
               int index = header.indexOf("=");
@@ -365,13 +382,13 @@ void website() {
               if (value >= auto_switch_on_hour && value <= 23) {
                 write_eeprom_int(auto_switch_off_hour_eeprom_address, value);
                 auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
-                if (debugging == true) Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour));
+                if (debuging == true) Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour));
               }
             }
 
             //Display the HTML web page
             client.println("<!DOCTYPE html><html>");
-            client.println("<html><head><title>ESP8266 Web-Server</title></head><body>");
+            client.println("<html><head><title>" + web_server_name + "</title></head><body>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
             client.println("<link rel=\"icon\" href=\"data:,\">");
 
@@ -384,24 +401,28 @@ void website() {
             client.println("<meta http-equiv=\"refresh\" content=\"30\">\r\n");
 
             //Web Page Heading
-            client.println("<body><h1>ESP8266 Web-Server " + versionsname + "</h1>");
+            client.println("<body><h1>" + web_server_name + versionsname + "</h1>");
 
-            //Display current state, and ON/OFF buttons for GPIO 1
-            client.println("<p>" + output1_state_string + "</p>");
-            // If the output1State is off, it displays the OFF button
-            if (output1_state == false) {
-              client.println("<p><a href=\"/1/on\"><button class=\"button\">OFF</button></a></p>");
-            } else {
-              client.println("<p><a href=\"/1/off\"><button class=\"button button2\">ON</button></a></p>");
+            if (button1 == true) {
+              //Display current state, and ON/OFF buttons for GPIO 1
+              client.println("<p>" + output1_state_string + "</p>");
+              // If the output1State is off, it displays the OFF button
+              if (output1_state == false) {
+                client.println("<p><a href=\"/1/on\"><button class=\"button\">OFF</button></a></p>");
+              } else {
+                client.println("<p><a href=\"/1/off\"><button class=\"button button2\">ON</button></a></p>");
+              }
             }
 
-            //Display current state, and ON/OFF buttons for GPIO 2
-            client.println("<p>" + output2_state_string + "</p>");
-            // If the output2State is off, it displays the OFF button
-            if (output2_state == false) {
-              client.println("<p><a href=\"/2/on\"><button class=\"button\">OFF</button></a></p>");
-            } else {
-              client.println("<p><a href=\"/2/off\"><button class=\"button button2\">ON</button></a></p>");
+            if (button2 == true) {
+              //Display current state, and ON/OFF buttons for GPIO 2
+              client.println("<p>" + output2_state_string + "</p>");
+              // If the output2State is off, it displays the OFF button
+              if (output2_state == false) {
+                client.println("<p><a href=\"/2/on\"><button class=\"button\">OFF</button></a></p>");
+              } else {
+                client.println("<p><a href=\"/2/off\"><button class=\"button button2\">ON</button></a></p>");
+              }
             }
 
             //time and sunset , sunrise informations
@@ -444,8 +465,8 @@ void website() {
 
     //Close the connection
     client.stop();
-    if (debugging == true) Serial.println("Client disconnected.");
-    if (debugging == true) Serial.println("");
+    if (debuging == true) Serial.println("Client disconnected.");
+    if (debuging == true) Serial.println("");
   }
 }
 //-----------------------------------------------------------------
@@ -454,7 +475,7 @@ void write_eeprom_string(int address, String value) {
   EEPROM.begin(eeprom_size);
   int len = value.length();
   len++;
-  if (len < 16) {
+  if (len < 32) {
     int address_end = address + len;
     char buf[len];
     byte count = 0;
@@ -512,8 +533,8 @@ String read_eeprom_string(int address) {
   EEPROM.begin(eeprom_size);
   String value;
   byte count = 0;
-  char buf[16];
-  for (int i = address ; i < (address + 15) ; i++) {
+  char buf[32];
+  for (int i = address ; i < (address + 31) ; i++) {
     buf[count] = EEPROM.read(i);
     if (buf[count] == 0) break; //endmark of string
     value += buf[count];
@@ -579,35 +600,127 @@ void set_gpio_pins(int gpio, boolean state) {
     output1_state = state;
     digitalWrite(output1, LOW);
     output1_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_off;
-    if (debugging == true) Serial.println(output1_state_string);
+    if (debuging == true) Serial.println(output1_state_string);
   }
 
   if (gpio == 1 && state == true) {
     output1_state = state;
     digitalWrite(output1, HIGH);
     output1_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_on;
-    if (debugging == true) Serial.println(output1_state_string);
+    if (debuging == true) Serial.println(output1_state_string);
   }
 
   if (gpio == 2 && state == false) {
     output2_state = state;
     digitalWrite(output2, LOW);
     output2_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_off;
-    if (debugging == true) Serial.println(output2_state_string);
+    if (debuging == true) Serial.println(output2_state_string);
   }
 
   if (gpio == 2 && state == true) {
     output2_state = state;
     digitalWrite(output2, HIGH);
     output2_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_on;
-    if (debugging == true) Serial.println(output2_state_string);
+    if (debuging == true) Serial.println(output2_state_string);
   }
 }
 //-----------------------------------------------------------------
 void load_config() {
 
+  Serial.println(F("Config load:"));
+
+  debuging = read_eeprom_bool(debuging_eeprom_address);
+  Serial.println("Debuging=" + String(debuging));
+
+  String value = "";
+  value = read_eeprom_string(ssid_eeprom_address);
+  strcpy(ssid, value.c_str());
+  Serial.println("SSID=" + String(ssid));
+  value = read_eeprom_string(password_eeprom_address);
+  strcpy(password, value.c_str());
+  Serial.println("Password=" + String(password));
+
   auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
   auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
-  if (debugging == true) Serial.println("Config loaded");
+  button1 = read_eeprom_bool(button1_eeprom_address);
+  button2 = read_eeprom_bool(button2_eeprom_address);
+  web_server_name = read_eeprom_string(web_server_name_eeprom_address);
+}
+//-----------------------------------------------------------------
+void lookup_commands() {
+
+  int length_ = serial_line_0.length();
+  length_ -= 1;
+
+  if (serial_line_0.substring(0, 5) == F("ssid=")) {
+    write_eeprom_string(ssid_eeprom_address, serial_line_0.substring(5, length_));
+    Serial.println(serial_line_0.substring(0, 5) + serial_line_0.substring(5, length_));
+    load_config();
+  }
+
+  if (serial_line_0.substring(0, 9) == F("password=")) {
+    write_eeprom_string(password_eeprom_address, serial_line_0.substring(9, length_));
+    Serial.println(serial_line_0.substring(0, 9) + serial_line_0.substring(9, length_));
+    load_config();
+  }
+
+  if (serial_line_0.substring(0, 11) == F("servername=")) {
+    write_eeprom_string(web_server_name_eeprom_address, serial_line_0.substring(11, length_));
+    Serial.println(serial_line_0.substring(0, 11) + serial_line_0.substring(11, length_));
+    load_config();
+  }
+
+  if (serial_line_0.substring(0, 9) == F("debuging=")) {
+    if (serial_line_0.substring(9, length_) == "false") {
+      write_eeprom_bool(debuging_eeprom_address, false);
+      Serial.println(serial_line_0.substring(0, 9) + serial_line_0.substring(9, length_));
+      load_config();
+    }
+    if (serial_line_0.substring(9, length_) == "true") {
+      write_eeprom_bool(debuging_eeprom_address, true);
+      Serial.println(serial_line_0.substring(0, 9) + serial_line_0.substring(9, length_));
+      load_config();
+    }
+  }
+
+  if (serial_line_0.substring(0, 8) == F("button1=")) {
+    if (serial_line_0.substring(8, length_) == "false") {
+      write_eeprom_bool(button1_eeprom_address, false);
+      Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
+      load_config();
+    }
+    if (serial_line_0.substring(8, length_) == "true") {
+      write_eeprom_bool(button1_eeprom_address, true);
+      Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
+      load_config();
+    }
+  }
+
+  if (serial_line_0.substring(0, 8) == F("button2=")) {
+    if (serial_line_0.substring(8, length_) == "false") {
+      write_eeprom_bool(button2_eeprom_address, false);
+      Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
+      load_config();
+    }
+    if (serial_line_0.substring(8, length_) == "true") {
+      write_eeprom_bool(button2_eeprom_address, true);
+      Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
+      load_config();
+    }
+  }
+
+  if (serial_line_0.substring(0, 11) == F("config -get")) {
+    load_config();
+  }
+}
+//-----------------------------------------------------------------
+void read_serial_port_0() {
+
+  if (Serial.available() > 0) {
+    serial_line_0;
+    serial_line_0 = Serial.readStringUntil('\n');
+    //Serial.println(serial_line_0);
+    lookup_commands();
+  }
 }
 //-----------------------------------------------------------------
