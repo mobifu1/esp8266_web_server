@@ -92,7 +92,7 @@ String date_string = "";    //build for the website
 String daylight_string = "";//build for the website
 
 String web_server_name = "ESP8266 Web-Server ";
-String versionsname = "(v0.9.5-r)";
+String versionsname = "(v1.0-r)";
 boolean debuging = false;
 
 //-----------------------------------------------------------------
@@ -642,9 +642,13 @@ void load_config() {
 
   auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
   auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
+
   button1 = read_eeprom_bool(button1_eeprom_address);
+  Serial.println("Button1=" + String(button1));
   button2 = read_eeprom_bool(button2_eeprom_address);
+  Serial.println("Button2=" + String(button2));
   web_server_name = read_eeprom_string(web_server_name_eeprom_address);
+  Serial.println("Servername=" + web_server_name);
 }
 //-----------------------------------------------------------------
 void lookup_commands() {
