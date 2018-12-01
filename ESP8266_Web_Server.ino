@@ -1,5 +1,22 @@
-// Web-Server to switch relais by sunset or manual via Web-Site
-// Arduino/Tools/Erase Flash:All Flash Contents !!!
+/*
+  Web-Server to switch 2 relais by sunset or manual via Web-Site
+
+  How it works:
+
+  Importand Information: Arduino IDE > Arduino/Tools/Erase Flash:All Flash Contents !!!
+  After flashing you can send variables by the same serial-comport in to the eeprom of esp8622
+
+  Commands:
+  ssid=xxxxx
+  passwort=xxxxx
+  servername=website name           show on the website
+  button1=false/true                show on the website
+  button2=false/true                show on the website
+  debuging=false/true               serial debuging informations
+  config -get                       show all stored variable on serial port
+
+  after setting changes, you have to restart the device.
+*/
 
 #include <ESP8266WiFi.h>
 #include <EEPROM.h>
