@@ -1,5 +1,5 @@
 /*
-  Web-Server to switch 2 relais by sunset or manual via Web-Site
+  Web-Server to switch 2 relais by sunset / sunrise or manual via Web-Site
 
   How it works:
 
@@ -56,12 +56,20 @@ String output1_state_string;
 String output2_state_string;
 
 //Buttons web site activation
-boolean button1 = true;
-boolean button2 = false;
+boolean button1;
+boolean button2;
 
-boolean auto_switch_by_sun = false;
-int auto_switch_on_hour = 16;//16:00 Uhr local time
-int auto_switch_off_hour = 21; //21:00 Uhr local time
+boolean auto_switch_by_sun_down = false;
+float auto_switch_off_hour_min = 16;//16:00 Uhr local time
+float auto_switch_off_hour_max = 23;//23:00 Uhr local time
+int auto_switch_off_hour;
+int auto_switch_off_minute;
+
+boolean auto_switch_by_sun_up = false;
+float auto_switch_on_hour_min = 5;//05:00 Uhr local time
+float auto_switch_on_hour_max  = 9; //09:00 Uhr local time
+int auto_switch_on_hour;
+int auto_switch_on_minute;
 
 // Assign output variables to GPIO pins
 const int output1 = 0; //GPIO 0
@@ -70,14 +78,18 @@ const int output2 = 2; //GPIO 2
 //EEprom statements
 const int eeprom_size = 128 ; //Size can be anywhere between 4 and 4096 bytes
 
-int auto_switch_by_sun_eeprom_address = 0;//boolean value
-int debuging_eeprom_address = 1;//boolean value
-int button1_eeprom_address = 2;//boolean value
-int button2_eeprom_address = 3;//boolean value
-int auto_switch_off_hour_eeprom_address = 4;//int value
-int ssid_eeprom_address = 8;//string max 22
-int password_eeprom_address = 32;//string max 32
-int web_server_name_eeprom_address = 65;//string max 32
+int auto_switch_by_sun_down_eeprom_address = 0;//boolean value
+int auto_switch_by_sun_up_eeprom_address = 1;//boolean value
+int debuging_eeprom_address = 2;//boolean value
+int button1_eeprom_address = 3;//boolean value
+int button2_eeprom_address = 4;//boolean value
+int auto_switch_off_hour_eeprom_address = 5;//int value
+int auto_switch_off_minute_eeprom_address = 7;//int value
+int auto_switch_on_hour_eeprom_address = 9;//int value
+int auto_switch_on_minute_eeprom_address = 11;//int value
+int ssid_eeprom_address = 16;//string max 22
+int password_eeprom_address = 40;//string max 32
+int web_server_name_eeprom_address = 80;//string max 32
 
 String serial_line_0;//read bytes from serial port 0
 //-----------------------------------------------------------------
@@ -107,9 +119,11 @@ String sunset_string = "";  //build for the website
 String time_string = "";    //build for the website
 String date_string = "";    //build for the website
 String daylight_string = "";//build for the website
+String auto_switch_on_string = "";
+String auto_switch_off_string = "";
 
-String web_server_name = "ESP8266 Web-Server ";
-String versionsname = "(v1.0-r)";
+String web_server_name = "";
+String versionsname = "(v1.1-beta)";
 boolean debuging = false;
 
 //-----------------------------------------------------------------
@@ -300,23 +314,48 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
   if (daylight == true) {
     //Serial.println("now is Day");
     daylight_string = "Daylight";
-    if (auto_switch_by_sun == true) {
+    if (auto_switch_by_sun_down == true) {
+      set_gpio_pins(1, false);
+      set_gpio_pins(2, false);
+    }
+    if (auto_switch_by_sun_up == true) {
       set_gpio_pins(1, false);
       set_gpio_pins(2, false);
     }
   }
+
   if (daylight == false) {
+    boolean power_on = false;
     //Serial.println("now is Night");
     daylight_string = "Night";
-    if (auto_switch_by_sun == true) {
-      if (hour_ >= auto_switch_on_hour && hour_ < auto_switch_off_hour) {
-        set_gpio_pins(1, true);
-        set_gpio_pins(2, true);
+
+    if (auto_switch_by_sun_down == true) {
+      float time_now = float(hour_) + (float(minute_) / 60);
+      if (time_now >= auto_switch_off_hour_min) {
+        float time_off = float(auto_switch_off_hour) + (float(auto_switch_off_minute) / 60);
+        if (time_now < time_off) {
+          power_on = true;
+        }
       }
-      else {
-        set_gpio_pins(1, false);
-        set_gpio_pins(2, false);
+    }
+
+    if (auto_switch_by_sun_up == true) {
+      float time_now = float(hour_) + (float(minute_) / 60);
+      if (time_now < auto_switch_on_hour_max) {
+        float time_on = float(auto_switch_on_hour) + (float(auto_switch_on_minute) / 60);
+        if (time_now >= time_on) {
+          power_on = true;
+        }
       }
+    }
+
+    if (power_on == true) {
+      set_gpio_pins(1, true);
+      set_gpio_pins(2, true);
+    }
+    else {
+      set_gpio_pins(1, false);
+      set_gpio_pins(2, false);
     }
   }
 
@@ -325,15 +364,20 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
     lead_zero = ("0");
   }
 
-  sunrise_string = "Sunrise: " + String(sunrise_hour) + ":" + lead_zero + String(sunrise_minute);
+  //Format time to leading zeros:
+  sunrise_string = "Sunrise: ";
+  if (sunrise_hour < 10) sunrise_string += "0";
+  sunrise_string += (String(sunrise_hour) + ":");
+  if (sunrise_minute < 10) sunrise_string += "0";
+  sunrise_string += String(sunrise_minute);
   //Serial.println(sunrise_string);
 
-  lead_zero = ("");
-  if (sundown_minute < 10) {
-    lead_zero = ("0");
-  }
-
-  sunset_string = "Sunset: " + String(sundown_hour) + ":" + lead_zero + String(sundown_minute);
+  //Format time to leading zeros:
+  sunset_string = "Sunset: ";
+  if (sundown_hour < 10) sunset_string += "0";
+  sunset_string += (String(sundown_hour) + ":");
+  if (sundown_minute < 10) sunset_string += "0";
+  sunset_string += String(sundown_minute);
   //Serial.println(sunset_string);
 
 }
@@ -363,43 +407,69 @@ void website() {
 
             //Handle the incoming information from the website user
             if (header.indexOf("GET /2/on") >= 0) {
-              if (auto_switch_by_sun == false) {
+              if (auto_switch_by_sun_down == false) {
                 set_gpio_pins(2, true);
               }
 
             } else if (header.indexOf("GET /2/off") >= 0) {
-              if (auto_switch_by_sun == false) {
+              if (auto_switch_by_sun_down == false) {
                 set_gpio_pins(2, false);
               }
 
             } else if (header.indexOf("GET /1/on") >= 0) {
-              if (auto_switch_by_sun == false) {
+              if (auto_switch_by_sun_down == false) {
                 set_gpio_pins(1, true);
               }
 
             } else if (header.indexOf("GET /1/off") >= 0) {
-              if (auto_switch_by_sun == false) {
+              if (auto_switch_by_sun_down == false) {
                 set_gpio_pins(1, false);
               }
 
             } else if (header.indexOf("GET /3/off") >= 0) {
-              write_eeprom_bool(auto_switch_by_sun_eeprom_address, false);
-              auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
-              if (debuging == true) Serial.println("Auto Modus off");
+              write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
+              load_config();
+              if (debuging == true) Serial.println("Auto Modus 1 off");
 
             } else if (header.indexOf("GET /3/on") >= 0) {
-              write_eeprom_bool(auto_switch_by_sun_eeprom_address, true);
-              auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
-              if (debuging == true) Serial.println("Auto Modus on");
+              write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, true);
+              load_config();
+              if (debuging == true) Serial.println("Auto Modus 1 on");
 
-            } else if (header.indexOf("Switch+off+Time=") >= 0) {  //GET /%20action_page.php?Switch+off+Time=16 HTTP/1.1
+            } else if (header.indexOf("Switch+off+Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=21%3A11 HTTP/1.1
               int index = header.indexOf("=");
               index += 1;
-              int value = (header.substring(index, index + 2)).toInt();
-              if (value >= auto_switch_on_hour && value <= 23) {
-                write_eeprom_int(auto_switch_off_hour_eeprom_address, value);
-                auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
-                if (debuging == true) Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour));
+              int value_0 = (header.substring(index, index + 2)).toInt();
+              int value_1 = (header.substring(index + 5, index + 7)).toInt();
+              float input_time = float(value_0) + (float(value_1) / 60);
+              if (input_time >= auto_switch_off_hour_min && input_time <= auto_switch_off_hour_max) {
+                write_eeprom_int(auto_switch_off_hour_eeprom_address, value_0);
+                write_eeprom_int(auto_switch_off_minute_eeprom_address, value_1);
+                load_config();
+                if (debuging == true) Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour) + ":" + String(auto_switch_off_minute));
+              }
+
+            } else if (header.indexOf("GET /4/off") >= 0) {
+              write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
+              load_config();
+              if (debuging == true) Serial.println("Auto Modus 2 off");
+
+            } else if (header.indexOf("GET /4/on") >= 0) {
+              write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
+              load_config();
+              if (debuging == true) Serial.println("Auto Modus 2 on");
+
+            } else if (header.indexOf("Switch+on+Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=05:30 HTTP/1.1
+              int index = header.indexOf("=");
+              index += 1;
+              int value_0 = (header.substring(index, index + 2)).toInt();
+              int value_1 = (header.substring(index + 5, index + 7)).toInt();
+              float input_time = float(value_0) + (float(value_1) / 60);
+              if (input_time >= auto_switch_on_hour_min && input_time <= auto_switch_on_hour_max) {
+                write_eeprom_int(auto_switch_on_hour_eeprom_address, value_0);
+                write_eeprom_int(auto_switch_on_minute_eeprom_address, value_1);
+                load_config();
+                if (debuging == true) Serial.println("Set Switch on Time to: " + String(auto_switch_on_hour) + ":" + String(auto_switch_on_minute));
               }
             }
 
@@ -446,11 +516,12 @@ void website() {
             client.println("<p>----------------------------------------------------------------------------</p>");
             client.println("<p>" + time_string + " / " + date_string + "</p>");
             client.println("<p>" + sunrise_string + " / " + sunset_string + " / " + daylight_string + "</p>");
-            client.println("<p>----------------------------------------------------------------------------</p>");
-            client.println("<p>Auto switch on at Sunset / Auto switch off at: " + String(auto_switch_off_hour) + ":00" + "</p>");
 
-            //auto switch on button (by sunset)
-            if (auto_switch_by_sun == false) { //button for auto_switch_by_sun
+            //auto switch on button (by sun set)
+            client.println("<p>----------------------------------------------------------------------------</p>");
+            client.println("<p>Auto switch on at Sunset / Auto switch off at: " + auto_switch_off_string + "</p>");
+
+            if (auto_switch_by_sun_down == false) { //button for auto_switch_by_sun
               client.println("<p><a href=\"/3/on\"><button class=\"button\">OFF</button></a></p>");
             } else {
               client.println("<p><a href=\"/3/off\"><button class=\"button button2\">ON</button></a></p>");
@@ -458,8 +529,26 @@ void website() {
 
             //inputform to define the auto switch off time
             client.println("<form action=\" / action_page.php\">");
-            client.println("Time off (between 16 and 23):");
-            client.println("<input type=\"number\" name=\"Switch off Time\" min=\"16\" max=\"23\">");
+            client.println("Time on (between 16:00 and 23:00):");
+            client.println("<input type=\"time\" name=\"Switch off Time\">");
+            client.println("<input type=\"submit\">");
+            client.println("</form>");
+
+            //auto switch off button (by sun rise)
+            client.println("<p>----------------------------------------------------------------------------</p>");
+            client.println("<p>Auto switch on at: "  + auto_switch_on_string + " / Auto switch off at Sunrise" + "</p>");
+
+            //auto switch on button (by sun set)
+            if (auto_switch_by_sun_up == false) { //button for auto_switch_by_sun
+              client.println("<p><a href=\"/4/on\"><button class=\"button\">OFF</button></a></p>");
+            } else {
+              client.println("<p><a href=\"/4/off\"><button class=\"button button2\">ON</button></a></p>");
+            }
+
+            //inputform to define the auto switch on time
+            client.println("<form action=\" / action_page.php\">");
+            client.println("Time on (between 05:00 and 09:00):");
+            client.println("<input type=\"time\" name=\"Switch on Time\">");
             client.println("<input type=\"submit\">");
             client.println("</form>");
 
@@ -657,8 +746,28 @@ void load_config() {
   strcpy(password, value.c_str());
   Serial.println("Password=" + String(password));
 
-  auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
+  auto_switch_by_sun_down = read_eeprom_bool(auto_switch_by_sun_down_eeprom_address);
+  auto_switch_by_sun_up = read_eeprom_bool(auto_switch_by_sun_up_eeprom_address);
+
   auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
+  auto_switch_off_minute = read_eeprom_int(auto_switch_off_minute_eeprom_address);
+
+  auto_switch_on_hour = read_eeprom_int(auto_switch_on_hour_eeprom_address);
+  auto_switch_on_minute = read_eeprom_int(auto_switch_on_minute_eeprom_address);
+
+  //Format time to leading zeros:
+  auto_switch_off_string = "";
+  if (auto_switch_off_hour < 10) auto_switch_off_string += "0";
+  auto_switch_off_string += (String(auto_switch_off_hour) + ":");
+  if (auto_switch_off_minute < 10) auto_switch_off_string += "0";
+  auto_switch_off_string += String(auto_switch_off_minute);
+
+  //Format time to leading zeros:
+  auto_switch_on_string = "";
+  if (auto_switch_on_hour < 10) auto_switch_on_string += "0";
+  auto_switch_on_string += (String(auto_switch_on_hour) + ":");
+  if (auto_switch_on_minute < 10) auto_switch_on_string += "0";
+  auto_switch_on_string += String(auto_switch_on_minute);
 
   button1 = read_eeprom_bool(button1_eeprom_address);
   Serial.println("Button1=" + String(button1));
