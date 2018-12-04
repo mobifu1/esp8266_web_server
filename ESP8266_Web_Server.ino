@@ -121,6 +121,7 @@ String date_string = "";    //build for the website
 String daylight_string = "";//build for the website
 String auto_switch_on_string = "";
 String auto_switch_off_string = "";
+String sun_psition = "";
 
 String web_server_name = "";
 String versionsname = "(v1.1-beta)";
@@ -276,24 +277,24 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
 
   sundata sun = sundata(latitude, longitude, time_diff_to_greenwich); //creat object with latitude and longtitude declared in degrees and time difference from Greenwhich
 
-  sun.time( year_, month_, day_, hour_, minute_, second_);  //insert year, month, day, hour, minutes and seconds
-  sun.calculations();                                             //update calculations for last inserted time
+  sun.time( year_, month_, day_, hour_, minute_, second_); //insert year, month, day, hour, minutes and seconds
+  sun.calculations();                                      //update calculations for last inserted time
 
-  float sun_el_rad = sun.elevation_rad();                    //store sun's elevation in rads
-  //float sun_el_deg = sun.elevation_deg();                  //store sun's elevation in degrees
+  //float sun_el_rad = sun.elevation_rad();                //store sun's elevation in rads
+  float sun_el_deg = sun.elevation_deg();                  //store sun's elevation in degrees
   //Serial.println(String(el_deg) + "Elevation");
 
-  float sun_az_rad = sun.azimuth_rad();                      //store sun's azimuth in rads
-  //float az_deg = sun.azimuth_deg();                        //store sun's azimuth in degrees
+  //float sun_az_rad = sun.azimuth_rad();                  //store sun's azimuth in rads
+  float az_deg = sun.azimuth_deg();                        //store sun's azimuth in degrees
   //Serial.println(String(az_deg) + "Azimuth");
 
-  float sunrise = sun.sunrise_time();                        //store sunrise time in decimal form
+  float sunrise = sun.sunrise_time();                      //store sunrise time in decimal form
   //Serial.println(String(sunrise) + "Sunrise");
   //sunrise = (sunrise - 0.141666667); //correction factor -8,5 min > Sundata.h calculates unexact
   int sunrise_hour = int(sunrise);
   int sunrise_minute = int((sunrise - sunrise_hour) * 60);
 
-  float sunset = sun.sunset_time();                          //store sunset time in decimal form
+  float sunset = sun.sunset_time();                        //store sunset time in decimal form
   //Serial.println(String(sunset) + "Sunset");
   //sunset = (sunset + 0.1625); //correction factor +9,75 min > Sundata.h calculates unexact
   int sundown_hour = int(sunset);
@@ -314,11 +315,8 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
   if (daylight == true) {
     //Serial.println("now is Day");
     daylight_string = "Daylight";
-    if (auto_switch_by_sun_down == true) {
-      set_gpio_pins(1, false);
-      set_gpio_pins(2, false);
-    }
-    if (auto_switch_by_sun_up == true) {
+
+    if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
       set_gpio_pins(1, false);
       set_gpio_pins(2, false);
     }
@@ -329,39 +327,37 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
     //Serial.println("now is Night");
     daylight_string = "Night";
 
-    if (auto_switch_by_sun_down == true) {
-      float time_now = float(hour_) + (float(minute_) / 60);
-      if (time_now >= auto_switch_off_hour_min) {
-        float time_off = float(auto_switch_off_hour) + (float(auto_switch_off_minute) / 60);
-        if (time_now < time_off) {
-          power_on = true;
+    if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
+
+      if (auto_switch_by_sun_down == true) {
+        float time_now = float(hour_) + (float(minute_) / 60);
+        if (time_now >= auto_switch_off_hour_min) {
+          float time_off = float(auto_switch_off_hour) + (float(auto_switch_off_minute) / 60);
+          if (time_now < time_off) {
+            power_on = true;
+          }
         }
       }
-    }
 
-    if (auto_switch_by_sun_up == true) {
-      float time_now = float(hour_) + (float(minute_) / 60);
-      if (time_now < auto_switch_on_hour_max) {
-        float time_on = float(auto_switch_on_hour) + (float(auto_switch_on_minute) / 60);
-        if (time_now >= time_on) {
-          power_on = true;
+      if (auto_switch_by_sun_up == true) {
+        float time_now = float(hour_) + (float(minute_) / 60);
+        if (time_now < auto_switch_on_hour_max) {
+          float time_on = float(auto_switch_on_hour) + (float(auto_switch_on_minute) / 60);
+          if (time_now >= time_on) {
+            power_on = true;
+          }
         }
       }
-    }
 
-    if (power_on == true) {
-      set_gpio_pins(1, true);
-      set_gpio_pins(2, true);
+      if (power_on == true) {
+        set_gpio_pins(1, true);
+        set_gpio_pins(2, true);
+      }
+      else {
+        set_gpio_pins(1, false);
+        set_gpio_pins(2, false);
+      }
     }
-    else {
-      set_gpio_pins(1, false);
-      set_gpio_pins(2, false);
-    }
-  }
-
-  String lead_zero = ("");
-  if (sunrise_minute < 10) {
-    lead_zero = ("0");
   }
 
   //Format time to leading zeros:
@@ -380,6 +376,9 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
   sunset_string += String(sundown_minute);
   //Serial.println(sunset_string);
 
+  //Format the sun position
+  sun_psition = "";
+  sun_psition = ("Sun Position: Azimuth: " + String(az_deg) + "deg / Elevation: " + String(sun_el_deg) + "deg");
 }
 //-----------------------------------------------------------------
 void website() {
@@ -436,7 +435,7 @@ void website() {
               load_config();
               if (debuging == true) Serial.println("Auto Modus 1 on");
 
-            } else if (header.indexOf("Switch+off+Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=21%3A11 HTTP/1.1
+            } else if (header.indexOf("Switch_off_Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=21%3A11 HTTP/1.1
               int index = header.indexOf("=");
               index += 1;
               int value_0 = (header.substring(index, index + 2)).toInt();
@@ -459,7 +458,7 @@ void website() {
               load_config();
               if (debuging == true) Serial.println("Auto Modus 2 on");
 
-            } else if (header.indexOf("Switch+on+Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=05:30 HTTP/1.1
+            } else if (header.indexOf("Switch_on_Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=05:30 HTTP/1.1
               int index = header.indexOf("=");
               index += 1;
               int value_0 = (header.substring(index, index + 2)).toInt();
@@ -516,6 +515,7 @@ void website() {
             client.println("<p>----------------------------------------------------------------------------</p>");
             client.println("<p>" + time_string + " / " + date_string + "</p>");
             client.println("<p>" + sunrise_string + " / " + sunset_string + " / " + daylight_string + "</p>");
+            client.println("<p>" + sun_psition + "</p>");
 
             //auto switch on button (by sun set)
             client.println("<p>----------------------------------------------------------------------------</p>");
@@ -529,8 +529,8 @@ void website() {
 
             //inputform to define the auto switch off time
             client.println("<form action=\" / action_page.php\">");
-            client.println("Time on (between 16:00 and 23:00):");
-            client.println("<input type=\"time\" name=\"Switch off Time\">");
+            client.println("Time off (between 16:00 and 23:00):");
+            client.println("<input type=\"time\" name=\"Switch_off_Time\">");
             client.println("<input type=\"submit\">");
             client.println("</form>");
 
@@ -538,7 +538,7 @@ void website() {
             client.println("<p>----------------------------------------------------------------------------</p>");
             client.println("<p>Auto switch on at: "  + auto_switch_on_string + " / Auto switch off at Sunrise" + "</p>");
 
-            //auto switch on button (by sun set)
+            //auto switch on button (by sun rise)
             if (auto_switch_by_sun_up == false) { //button for auto_switch_by_sun
               client.println("<p><a href=\"/4/on\"><button class=\"button\">OFF</button></a></p>");
             } else {
@@ -548,7 +548,7 @@ void website() {
             //inputform to define the auto switch on time
             client.println("<form action=\" / action_page.php\">");
             client.println("Time on (between 05:00 and 09:00):");
-            client.println("<input type=\"time\" name=\"Switch on Time\">");
+            client.println("<input type=\"time\" name=\"Switch_on_Time\">");
             client.println("<input type=\"submit\">");
             client.println("</form>");
 
