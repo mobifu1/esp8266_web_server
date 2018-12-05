@@ -54,6 +54,7 @@ boolean output1_state;
 boolean output2_state;
 String output1_state_string;
 String output2_state_string;
+boolean invert_gpio = false;
 
 //Buttons web site activation
 boolean button1;
@@ -80,13 +81,14 @@ const int eeprom_size = 128 ; //Size can be anywhere between 4 and 4096 bytes
 
 int auto_switch_by_sun_down_eeprom_address = 0;//boolean value
 int auto_switch_by_sun_up_eeprom_address = 1;//boolean value
-int debuging_eeprom_address = 2;//boolean value
-int button1_eeprom_address = 3;//boolean value
-int button2_eeprom_address = 4;//boolean value
-int auto_switch_off_hour_eeprom_address = 5;//int value
-int auto_switch_off_minute_eeprom_address = 7;//int value
-int auto_switch_on_hour_eeprom_address = 9;//int value
-int auto_switch_on_minute_eeprom_address = 11;//int value
+int debuging_eeprom_address = 2;        //boolean value
+int button1_eeprom_address = 3;         //boolean value
+int button2_eeprom_address = 4;         //boolean value
+int invert_gpio_eeprom_address = 5;     //boolean value
+int auto_switch_off_hour_eeprom_address = 6;//int value
+int auto_switch_off_minute_eeprom_address = 8;//int value
+int auto_switch_on_hour_eeprom_address = 10;//int value
+int auto_switch_on_minute_eeprom_address = 12;//int value
 int ssid_eeprom_address = 16;//string max 22
 int password_eeprom_address = 40;//string max 32
 int web_server_name_eeprom_address = 80;//string max 32
@@ -335,6 +337,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
           float time_off = float(auto_switch_off_hour) + (float(auto_switch_off_minute) / 60);
           if (time_now < time_off) {
             power_on = true;
+            if (debuging == true) Serial.println(F("Power on / sun down"));
           }
         }
       }
@@ -345,6 +348,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
           float time_on = float(auto_switch_on_hour) + (float(auto_switch_on_minute) / 60);
           if (time_now >= time_on) {
             power_on = true;
+            if (debuging == true) Serial.println(F("Power on / sun up"));
           }
         }
       }
@@ -378,7 +382,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
 
   //Format the sun position
   sun_psition = "";
-  sun_psition = ("Sun Position: Azimuth: " + String(az_deg) + "deg / Elevation: " + String(sun_el_deg) + "deg");
+  sun_psition = ("Sun: Azimuth: " + String(az_deg) + " deg / Elevation: " + String(sun_el_deg) + " deg");
 }
 //-----------------------------------------------------------------
 void website() {
@@ -704,28 +708,32 @@ void set_gpio_pins(int gpio, boolean state) {
 
   if (gpio == 1 && state == false) {
     output1_state = state;
-    digitalWrite(output1, LOW);
+    if (invert_gpio == false) digitalWrite(output1, LOW);
+    if (invert_gpio == true) digitalWrite(output1, HIGH);
     output1_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_off;
     if (debuging == true) Serial.println(output1_state_string);
   }
 
   if (gpio == 1 && state == true) {
     output1_state = state;
-    digitalWrite(output1, HIGH);
+    if (invert_gpio == false) digitalWrite(output1, HIGH);
+    if (invert_gpio == true) digitalWrite(output1, LOW);
     output1_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_on;
     if (debuging == true) Serial.println(output1_state_string);
   }
 
   if (gpio == 2 && state == false) {
     output2_state = state;
-    digitalWrite(output2, LOW);
+    if (invert_gpio == false) digitalWrite(output2, LOW);
+    if (invert_gpio == true) digitalWrite(output2, HIGH);
     output2_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_off;
     if (debuging == true) Serial.println(output2_state_string);
   }
 
   if (gpio == 2 && state == true) {
     output2_state = state;
-    digitalWrite(output2, HIGH);
+    if (invert_gpio == false) digitalWrite(output2, HIGH);
+    if (invert_gpio == true) digitalWrite(output2, LOW);
     output2_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_on;
     if (debuging == true) Serial.println(output2_state_string);
   }
@@ -775,6 +783,9 @@ void load_config() {
   Serial.println("Button2=" + String(button2));
   web_server_name = read_eeprom_string(web_server_name_eeprom_address);
   Serial.println("Servername=" + web_server_name);
+
+  invert_gpio = read_eeprom_bool(invert_gpio_eeprom_address);
+  Serial.println("Invert GPIO=" + String(invert_gpio));
 }
 //-----------------------------------------------------------------
 void lookup_commands() {
@@ -834,6 +845,19 @@ void lookup_commands() {
     }
     if (serial_line_0.substring(8, length_) == "true") {
       write_eeprom_bool(button2_eeprom_address, true);
+      Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
+      load_config();
+    }
+  }
+
+  if (serial_line_0.substring(0, 12) == F("invert_gpio=")) {
+    if (serial_line_0.substring(12, length_) == "false") {
+      write_eeprom_bool(invert_gpio_eeprom_address, false);
+      Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
+      load_config();
+    }
+    if (serial_line_0.substring(12, length_) == "true") {
+      write_eeprom_bool(invert_gpio_eeprom_address, true);
       Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
       load_config();
     }
