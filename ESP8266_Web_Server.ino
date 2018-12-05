@@ -13,6 +13,7 @@
   button1=false/true                show on the website
   button2=false/true                show on the website
   debuging=false/true               serial debuging informations
+  invert_gpio=false/true            invert the output signal for each relay-boards
   config -get                       show all stored variable on serial port
 
   after setting changes, you have to restart the device.
@@ -54,7 +55,7 @@ boolean output1_state;
 boolean output2_state;
 String output1_state_string;
 String output2_state_string;
-boolean invert_gpio = false;
+boolean invert_gpio;
 
 //Buttons web site activation
 boolean button1;
@@ -113,14 +114,12 @@ int minute_ ;
 int second_ ;
 
 int time_diff_to_greenwich; // add to UTC > hour 1=winter  2=sommer (timezone: Berlin,Paris)
-boolean daylight;           //Day / Night
 String am_pm = "";          //AM / PM
 String european_time = "";  //CET / CEST
 String sunrise_string = ""; //build for the website
 String sunset_string = "";  //build for the website
 String time_string = "";    //build for the website
 String date_string = "";    //build for the website
-String daylight_string = "";//build for the website
 String auto_switch_on_string = "";
 String auto_switch_off_string = "";
 String sun_psition = "";
@@ -296,71 +295,50 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
   int sunrise_hour = int(sunrise);
   int sunrise_minute = int((sunrise - sunrise_hour) * 60);
 
-  float sunset = sun.sunset_time();                        //store sunset time in decimal form
+  float sunset = sun.sunset_time();                        //store sunset time in decimal form > 15:30 = 15,5
   //Serial.println(String(sunset) + "Sunset");
   //sunset = (sunset + 0.1625); //correction factor +9,75 min > Sundata.h calculates unexact
   int sundown_hour = int(sunset);
   int sundown_minute = int((sunset - sundown_hour) * 60);
 
   //Calculation daylight
-  int minutes_of_day = ((hour_ * 60) + minute_);
-  int minutes_of_sunrise = ((sunrise_hour * 60) + sunrise_minute);
-  int minutes_of_sundown = ((sundown_hour * 60) + sundown_minute);
+  float time_now = float(hour_) + (float(minute_) / 60);
 
-  if ((minutes_of_day >= minutes_of_sunrise)  && (minutes_of_day <= minutes_of_sundown)) {
-    daylight = true;
-  }
-  else {
-    daylight = false;
-  }
+  if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
 
-  if (daylight == true) {
-    //Serial.println("now is Day");
-    daylight_string = "Daylight";
+    boolean auto_power_on = false;
+    float time_off = float(auto_switch_off_hour) + (float(auto_switch_off_minute) / 60);
+    float time_on = float(auto_switch_on_hour) + (float(auto_switch_on_minute) / 60);
 
-    if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
-      set_gpio_pins(1, false);
-      set_gpio_pins(2, false);
-    }
-  }
-
-  if (daylight == false) {
-    boolean power_on = false;
-    //Serial.println("now is Night");
-    daylight_string = "Night";
-
-    if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
-
-      if (auto_switch_by_sun_down == true) {
-        float time_now = float(hour_) + (float(minute_) / 60);
-        if (time_now >= auto_switch_off_hour_min) {
-          float time_off = float(auto_switch_off_hour) + (float(auto_switch_off_minute) / 60);
+    if (auto_switch_by_sun_down == true) {
+      if (time_now >= auto_switch_off_hour_min && time_now <= auto_switch_off_hour_max) {// 16 & 23
+        if (time_now >= sunset) {
           if (time_now < time_off) {
-            power_on = true;
+            auto_power_on = true;
             if (debuging == true) Serial.println(F("Power on / sun down"));
           }
         }
       }
+    }
 
-      if (auto_switch_by_sun_up == true) {
-        float time_now = float(hour_) + (float(minute_) / 60);
-        if (time_now < auto_switch_on_hour_max) {
-          float time_on = float(auto_switch_on_hour) + (float(auto_switch_on_minute) / 60);
+    if (auto_switch_by_sun_up == true) {
+      if (time_now >= auto_switch_on_hour_min && time_now <= auto_switch_on_hour_max) {// 5 & 9
+        if (time_now < sunrise) {
           if (time_now >= time_on) {
-            power_on = true;
+            auto_power_on = true;
             if (debuging == true) Serial.println(F("Power on / sun up"));
           }
         }
       }
+    }
 
-      if (power_on == true) {
-        set_gpio_pins(1, true);
-        set_gpio_pins(2, true);
-      }
-      else {
-        set_gpio_pins(1, false);
-        set_gpio_pins(2, false);
-      }
+    if (auto_power_on == true) {
+      set_gpio_pins(1, true);
+      set_gpio_pins(2, true);
+    }
+    else {
+      set_gpio_pins(1, false);
+      set_gpio_pins(2, false);
     }
   }
 
@@ -381,8 +359,11 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
   //Serial.println(sunset_string);
 
   //Format the sun position
-  sun_psition = "";
-  sun_psition = ("Sun: Azimuth: " + String(az_deg) + " deg / Elevation: " + String(sun_el_deg) + " deg");
+  sun_psition = ("Sun: Azimuth: " + String(az_deg) + " deg / Elevation: " + String(sun_el_deg) + " deg / ");
+  if (sun_el_deg >= 0)sun_psition += F("Daylight");
+  if (sun_el_deg >= -6 && sun_el_deg < 0 )sun_psition += F("Twilight");
+  if (sun_el_deg >= -12 && sun_el_deg < -6 )sun_psition += F("Astronomical-Twilight");
+  if (sun_el_deg < -12)sun_psition += F("Night");
 }
 //-----------------------------------------------------------------
 void website() {
@@ -518,7 +499,7 @@ void website() {
             //time and sunset , sunrise informations
             client.println("<p>----------------------------------------------------------------------------</p>");
             client.println("<p>" + time_string + " / " + date_string + "</p>");
-            client.println("<p>" + sunrise_string + " / " + sunset_string + " / " + daylight_string + "</p>");
+            client.println("<p>" + sunrise_string + " / " + sunset_string + "</p>");
             client.println("<p>" + sun_psition + "</p>");
 
             //auto switch on button (by sun set)
