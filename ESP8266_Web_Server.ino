@@ -22,7 +22,6 @@
 #include <ESP8266WiFi.h>
 #include <EEPROM.h>
 #include <Ticker.h>
-#include <time.h>
 #include <simpleDSTadjust.h>
 #include <sundata.h>
 
@@ -112,6 +111,7 @@ int day_ ;
 int hour_ ;
 int minute_ ;
 int second_ ;
+boolean weekend;
 
 int time_diff_to_greenwich; // add to UTC > hour 1=winter  2=sommer (timezone: Berlin,Paris)
 String am_pm = "";          //AM / PM
@@ -123,11 +123,12 @@ String date_string = "";    //build for the website
 String auto_switch_on_string = "";
 String auto_switch_off_string = "";
 String sun_psition = "";
+String day_string = "";
 
 String web_server_name = "";
-String versionsname = "(v1.1-beta)";
+String versionsname = "(v1.2-beta)";
 boolean debuging = false;
-
+const String weekdays[7] = {"Do", "Fr", "Sa", "So", "Mo", "Di", "Mi" };
 //-----------------------------------------------------------------
 void setup() {
 
@@ -225,6 +226,7 @@ void printTime(time_t offset) {
   String line = buf;
   time_split_parameter (line);
   sunrise (lat, lon, time_diff_to_greenwich);//Hamburg 53,5° 10,0°
+  day_string = weekdays[day_of_week (t)];
 }
 //-----------------------------------------------------------------
 void time_split_parameter (String line) { //11/23/2018 03:57:30pm CET
@@ -325,8 +327,10 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
       if (time_now >= auto_switch_on_hour_min && time_now <= auto_switch_on_hour_max) {// 5 & 9
         if (time_now < sunrise) {
           if (time_now >= time_on) {
-            auto_power_on = true;
-            if (debuging == true) Serial.println(F("Power on / sun up"));
+            if (weekend == false) {
+              auto_power_on = true;
+              if (debuging == true) Serial.println(F("Power on / sun up"));
+            }
           }
         }
       }
@@ -498,7 +502,7 @@ void website() {
 
             //time and sunset , sunrise informations
             client.println("<p>----------------------------------------------------------------------------</p>");
-            client.println("<p>" + time_string + " / " + date_string + "</p>");
+            client.println("<p>" + day_string + " / " + time_string + " / " + date_string + "</p>");
             client.println("<p>" + sunrise_string + " / " + sunset_string + "</p>");
             client.println("<p>" + sun_psition + "</p>");
 
@@ -529,7 +533,9 @@ void website() {
             } else {
               client.println("<p><a href=\"/4/off\"><button class=\"button button2\">ON</button></a></p>");
             }
-
+            if (weekend == true) {
+              client.println("<p>Weekend Modus</p>");
+            }
             //inputform to define the auto switch on time
             client.println("<form action=\" / action_page.php\">");
             client.println("Time on (between 05:00 and 09:00):");
@@ -559,6 +565,35 @@ void website() {
     if (debuging == true) Serial.println("Client disconnected.");
     if (debuging == true) Serial.println("");
   }
+}
+//-----------------------------------------------------------------
+int day_of_week (long epoch) {
+
+  long day = epoch / 86400L;
+  int day_of_the_week = day % 7;
+
+  if (day_of_the_week == 2 || day_of_the_week == 3) {
+    weekend = true;
+  }
+  else {
+    weekend = false;
+  }
+
+  if (debuging == true) {
+    Serial.println("dow:" + String(day_of_the_week));
+    Serial.println("wed:" + String(weekend));
+  }
+
+  //Since January 1, 1970 was a Thursday the results are:
+  //0=Thursday
+  //1=Friday
+  //2=Saturday
+  //3=Sunday
+  //4=Monday
+  //5=Tuesday
+  //6=Wednesday
+
+  return day_of_the_week;
 }
 //-----------------------------------------------------------------
 void write_eeprom_string(int address, String value) {
