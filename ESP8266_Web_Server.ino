@@ -152,7 +152,7 @@ void setup() {
   WiFi.begin(ssid, password);
   Serial.println(F("\nConnecting to WiFi"));
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
+    Serial.print(F("."));
     read_serial_port_0();
     delay(1000);
   }
@@ -375,7 +375,7 @@ void website() {
   WiFiClient client = server.available();   // Listen for incoming clients
 
   if (client) {                             // If a new client connects,
-    if (debuging == true) Serial.println("New Client.");          // print a message out in the serial port
+    if (debuging == true) Serial.println(F("New Client."));          // print a message out in the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
     while (client.connected()) {            // loop while the client's connected
       if (client.available()) {             // if there's bytes to read from the client,
@@ -417,12 +417,12 @@ void website() {
             } else if (header.indexOf("GET /3/off") >= 0) {
               write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
               load_config();
-              if (debuging == true) Serial.println("Auto Modus 1 off");
+              if (debuging == true) Serial.println(F("Auto Modus 1 off"));
 
             } else if (header.indexOf("GET /3/on") >= 0) {
               write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, true);
               load_config();
-              if (debuging == true) Serial.println("Auto Modus 1 on");
+              if (debuging == true) Serial.println(F("Auto Modus 1 on"));
 
             } else if (header.indexOf("Switch_off_Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=21%3A11 HTTP/1.1
               int index = header.indexOf("=");
@@ -440,12 +440,12 @@ void website() {
             } else if (header.indexOf("GET /4/off") >= 0) {
               write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
               load_config();
-              if (debuging == true) Serial.println("Auto Modus 2 off");
+              if (debuging == true) Serial.println(F("Auto Modus 2 off"));
 
-            } else if (header.indexOf("GET /4/on") >= 0) {
+              } else if (header.indexOf("GET /4/on") >= 0) {
               write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
               load_config();
-              if (debuging == true) Serial.println("Auto Modus 2 on");
+              if (debuging == true) Serial.println(F("Auto Modus 2 on"));
 
             } else if (header.indexOf("Switch_on_Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=05:30 HTTP/1.1
               int index = header.indexOf("=");
@@ -462,18 +462,18 @@ void website() {
             }
 
             //Display the HTML web page
-            client.println("<!DOCTYPE html><html>");
+            client.println(F("<!DOCTYPE html><html>"));
             client.println("<html><head><title>" + web_server_name + "</title></head><body>");
-            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-            client.println("<link rel=\"icon\" href=\"data:,\">");
+            client.println(F("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"));
+            client.println(F("<link rel=\"icon\" href=\"data:,\">"));
 
             //CSS to style the on/off buttons
             //Feel free to change the background-color and font-size attributes to fit your preferences
-            client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
-            client.println(".button { background-color: #195B6A; border: none; color: white; padding: 16px 40px;");
-            client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
-            client.println(".button2 {background-color: #77878A;}</style></head>");
-            client.println("<meta http-equiv=\"refresh\" content=\"30\">\r\n");
+            client.println(F("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}"));
+            client.println(F(".button { background-color: #195B6A; border: none; color: white; padding: 16px 40px;"));
+            client.println(F("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}"));
+            client.println(F(".button2 {background-color: #77878A;}</style></head>"));
+            client.println(F("<meta http-equiv=\"refresh\" content=\"30\">\r\n"));
 
             //Web Page Heading
             client.println("<body><h1>" + web_server_name + versionsname + "</h1>");
@@ -483,9 +483,9 @@ void website() {
               client.println("<p>" + output1_state_string + "</p>");
               // If the output1State is off, it displays the OFF button
               if (output1_state == false) {
-                client.println("<p><a href=\"/1/on\"><button class=\"button\">OFF</button></a></p>");
+                client.println(F("<p><a href=\"/1/on\"><button class=\"button\">OFF</button></a></p>"));
               } else {
-                client.println("<p><a href=\"/1/off\"><button class=\"button button2\">ON</button></a></p>");
+                client.println(F("<p><a href=\"/1/off\"><button class=\"button button2\">ON</button></a></p>"));
               }
             }
 
@@ -494,56 +494,56 @@ void website() {
               client.println("<p>" + output2_state_string + "</p>");
               // If the output2State is off, it displays the OFF button
               if (output2_state == false) {
-                client.println("<p><a href=\"/2/on\"><button class=\"button\">OFF</button></a></p>");
+                client.println(F("<p><a href=\"/2/on\"><button class=\"button\">OFF</button></a></p>"));
               } else {
-                client.println("<p><a href=\"/2/off\"><button class=\"button button2\">ON</button></a></p>");
+                client.println(F("<p><a href=\"/2/off\"><button class=\"button button2\">ON</button></a></p>"));
               }
             }
 
             //time and sunset , sunrise informations
-            client.println("<p>----------------------------------------------------------------------------</p>");
+            client.println(F("<p>----------------------------------------------------------------------------</p>"));
             client.println("<p>" + day_string + " / " + time_string + " / " + date_string + "</p>");
             client.println("<p>" + sunrise_string + " / " + sunset_string + "</p>");
             client.println("<p>" + sun_psition + "</p>");
 
             //auto switch on button (by sun set)
-            client.println("<p>----------------------------------------------------------------------------</p>");
+            client.println(F("<p>----------------------------------------------------------------------------</p>"));
             client.println("<p>Auto switch on at Sunset / Auto switch off at: " + auto_switch_off_string + "</p>");
 
             if (auto_switch_by_sun_down == false) { //button for auto_switch_by_sun
-              client.println("<p><a href=\"/3/on\"><button class=\"button\">OFF</button></a></p>");
+              client.println(F("<p><a href=\"/3/on\"><button class=\"button\">OFF</button></a></p>"));
             } else {
-              client.println("<p><a href=\"/3/off\"><button class=\"button button2\">ON</button></a></p>");
+              client.println(F("<p><a href=\"/3/off\"><button class=\"button button2\">ON</button></a></p>"));
             }
 
             //inputform to define the auto switch off time
-            client.println("<form action=\" / action_page.php\">");
-            client.println("Time off (between 16:00 and 23:00):");
-            client.println("<input type=\"time\" name=\"Switch_off_Time\">");
-            client.println("<input type=\"submit\">");
-            client.println("</form>");
+            client.println(F("<form action=\"/action_page.php\">"));
+            client.println(F("Time off (between 16:00 and 23:00):"));
+            client.println(F("<input type=\"time\" name=\"Switch_off_Time\">"));
+            client.println(F("<input type=\"submit\">"));
+            client.println(F("</form>"));
 
             //auto switch off button (by sun rise)
-            client.println("<p>----------------------------------------------------------------------------</p>");
+            client.println(F("<p>----------------------------------------------------------------------------</p>"));
             client.println("<p>Auto switch on at: "  + auto_switch_on_string + " / Auto switch off at Sunrise" + "</p>");
 
             //auto switch on button (by sun rise)
             if (auto_switch_by_sun_up == false) { //button for auto_switch_by_sun
-              client.println("<p><a href=\"/4/on\"><button class=\"button\">OFF</button></a></p>");
+              client.println(F("<p><a href=\"/4/on\"><button class=\"button\">OFF</button></a></p>"));
             } else {
-              client.println("<p><a href=\"/4/off\"><button class=\"button button2\">ON</button></a></p>");
+              client.println(F("<p><a href=\"/4/off\"><button class=\"button button2\">ON</button></a></p>"));
             }
             if (weekend == true) {
               client.println("<p>Weekend Modus</p>");
             }
             //inputform to define the auto switch on time
-            client.println("<form action=\" / action_page.php\">");
-            client.println("Time on (between 05:00 and 09:00):");
-            client.println("<input type=\"time\" name=\"Switch_on_Time\">");
-            client.println("<input type=\"submit\">");
-            client.println("</form>");
+            client.println(F("<form action=\"/action_page.php\">"));
+            client.println(F("Time on (between 05:00 and 09:00):"));
+            client.println(F("<input type=\"time\" name=\"Switch_on_Time\">"));
+            client.println(F("<input type=\"submit\">"));
+            client.println(F("</form>"));
 
-            client.println("</body></html>");
+            client.println(F("</body></html>"));
 
             //The HTTP response ends with another blank line
             client.println();
@@ -562,7 +562,7 @@ void website() {
 
     //Close the connection
     client.stop();
-    if (debuging == true) Serial.println("Client disconnected.");
+    if (debuging == true) Serial.println(F("Client disconnected."));
     if (debuging == true) Serial.println("");
   }
 }
@@ -580,8 +580,8 @@ int day_of_week (long epoch) {
   }
 
   if (debuging == true) {
-    Serial.println("dow:" + String(day_of_the_week));
-    Serial.println("wed:" + String(weekend));
+    Serial.println("Dow:" + String(day_of_the_week));
+    Serial.println("Wed:" + String(weekend));
   }
 
   //Since January 1, 1970 was a Thursday the results are:
@@ -887,7 +887,6 @@ void lookup_commands() {
 void read_serial_port_0() {
 
   if (Serial.available() > 0) {
-    serial_line_0;
     serial_line_0 = Serial.readStringUntil('\n');
     //Serial.println(serial_line_0);
     lookup_commands();
