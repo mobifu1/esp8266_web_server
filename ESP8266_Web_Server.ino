@@ -308,28 +308,37 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
 
   if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
 
+    if (debuging == true) Serial.println(F("s00")); //switch barriers
+
     boolean auto_power_on = false;
     float time_off = float(auto_switch_off_hour) + (float(auto_switch_off_minute) / 60);
     float time_on = float(auto_switch_on_hour) + (float(auto_switch_on_minute) / 60);
 
     if (auto_switch_by_sun_down == true) {
+      if (debuging == true) Serial.println(F("s01"));
       if (time_now >= auto_switch_off_hour_min && time_now <= auto_switch_off_hour_max) {// 16 & 23
+        if (debuging == true) Serial.println(F("s02"));
         if (time_now >= sunset) {
+          if (debuging == true) Serial.println(F("s03"));
           if (time_now < time_off) {
-            auto_power_on = true;
             if (debuging == true) Serial.println(F("Power on / sun down"));
+            auto_power_on = true;
           }
         }
       }
     }
 
     if (auto_switch_by_sun_up == true) {
+      if (debuging == true) Serial.println(F("s11"));
       if (time_now >= auto_switch_on_hour_min && time_now <= auto_switch_on_hour_max) {// 5 & 9
+        if (debuging == true) Serial.println(F("s12"));
         if (time_now < sunrise) {
+          if (debuging == true) Serial.println(F("s13"));
           if (time_now >= time_on) {
+            if (debuging == true) Serial.println(F("s14"));
             if (weekend == false) {
-              auto_power_on = true;
               if (debuging == true) Serial.println(F("Power on / sun up"));
+              auto_power_on = true;
             }
           }
         }
@@ -388,44 +397,44 @@ void website() {
           if (currentLine.length() == 0) {
             //HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
             //and a content-type so the client knows what's coming, then a blank line:
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
-            client.println("Connection: close");
+            client.println(F("HTTP/1.1 200 OK"));
+            client.println(F("Content-type:text/html"));
+            client.println(F("Connection: close"));
             client.println();
 
             //Handle the incoming information from the website user
-            if (header.indexOf("GET /2/on") >= 0) {
+            if (header.indexOf(F("GET /2/on")) >= 0) {
               if (auto_switch_by_sun_down == false) {
                 set_gpio_pins(2, true);
               }
 
-            } else if (header.indexOf("GET /2/off") >= 0) {
+            } else if (header.indexOf(F("GET /2/off")) >= 0) {
               if (auto_switch_by_sun_down == false) {
                 set_gpio_pins(2, false);
               }
 
-            } else if (header.indexOf("GET /1/on") >= 0) {
+            } else if (header.indexOf(F("GET /1/on")) >= 0) {
               if (auto_switch_by_sun_down == false) {
                 set_gpio_pins(1, true);
               }
 
-            } else if (header.indexOf("GET /1/off") >= 0) {
+            } else if (header.indexOf(F("GET /1/off")) >= 0) {
               if (auto_switch_by_sun_down == false) {
                 set_gpio_pins(1, false);
               }
 
-            } else if (header.indexOf("GET /3/off") >= 0) {
+            } else if (header.indexOf(F("GET /3/off")) >= 0) {
               write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
               load_config();
               if (debuging == true) Serial.println(F("Auto Modus 1 off"));
 
-            } else if (header.indexOf("GET /3/on") >= 0) {
+            } else if (header.indexOf(F("GET /3/on")) >= 0) {
               write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, true);
               load_config();
               if (debuging == true) Serial.println(F("Auto Modus 1 on"));
 
-            } else if (header.indexOf("Switch_off_Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=21%3A11 HTTP/1.1
-              int index = header.indexOf("=");
+            } else if (header.indexOf(F("Switch_off_Time=")) >= 0) {  //GET /%20action_page.php?Switch+on+Time=21%3A11 HTTP/1.1
+              int index = header.indexOf(F("="));
               index += 1;
               int value_0 = (header.substring(index, index + 2)).toInt();
               int value_1 = (header.substring(index + 5, index + 7)).toInt();
@@ -437,18 +446,18 @@ void website() {
                 if (debuging == true) Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour) + ":" + String(auto_switch_off_minute));
               }
 
-            } else if (header.indexOf("GET /4/off") >= 0) {
+            } else if (header.indexOf(F("GET /4/off")) >= 0) {
               write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
               load_config();
               if (debuging == true) Serial.println(F("Auto Modus 2 off"));
 
-              } else if (header.indexOf("GET /4/on") >= 0) {
+            } else if (header.indexOf(F("GET /4/on")) >= 0) {
               write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
               load_config();
               if (debuging == true) Serial.println(F("Auto Modus 2 on"));
 
-            } else if (header.indexOf("Switch_on_Time=") >= 0) {  //GET /%20action_page.php?Switch+on+Time=05:30 HTTP/1.1
-              int index = header.indexOf("=");
+            } else if (header.indexOf(F("Switch_on_Time=")) >= 0) {  //GET /%20action_page.php?Switch+on+Time=05:30 HTTP/1.1
+              int index = header.indexOf(F("="));
               index += 1;
               int value_0 = (header.substring(index, index + 2)).toInt();
               int value_1 = (header.substring(index + 5, index + 7)).toInt();
