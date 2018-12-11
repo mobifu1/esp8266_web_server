@@ -126,7 +126,7 @@ String sun_psition = "";
 String day_string = "";
 
 String web_server_name = "";
-String versionsname = "(v1.2-beta)";
+String versionsname = "(v1.2-r)";
 boolean debuging = false;
 const String weekdays[7] = {"Do", "Fr", "Sa", "So", "Mo", "Di", "Mi" };
 //-----------------------------------------------------------------
@@ -308,18 +308,13 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
 
   if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
 
-    if (debuging == true) Serial.println(F("s00")); //switch barriers
-
     boolean auto_power_on = false;
     float time_off = float(auto_switch_off_hour) + (float(auto_switch_off_minute) / 60);
     float time_on = float(auto_switch_on_hour) + (float(auto_switch_on_minute) / 60);
 
     if (auto_switch_by_sun_down == true) {
-      if (debuging == true) Serial.println(F("s01"));
-      if (time_now >= auto_switch_off_hour_min && time_now <= auto_switch_off_hour_max) {// 16 & 23
-        if (debuging == true) Serial.println(F("s02"));
+      if (time_off >= auto_switch_off_hour_min && time_now <= auto_switch_off_hour_max) {// 16 & 23
         if (time_now >= sunset) {
-          if (debuging == true) Serial.println(F("s03"));
           if (time_now < time_off) {
             if (debuging == true) Serial.println(F("Power on / sun down"));
             auto_power_on = true;
@@ -329,13 +324,9 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
     }
 
     if (auto_switch_by_sun_up == true) {
-      if (debuging == true) Serial.println(F("s11"));
-      if (time_now >= auto_switch_on_hour_min && time_now <= auto_switch_on_hour_max) {// 5 & 9
-        if (debuging == true) Serial.println(F("s12"));
+      if (time_on >= auto_switch_on_hour_min && time_now <= auto_switch_on_hour_max) {// 5 & 9
         if (time_now < sunrise) {
-          if (debuging == true) Serial.println(F("s13"));
           if (time_now >= time_on) {
-            if (debuging == true) Serial.println(F("s14"));
             if (weekend == false) {
               if (debuging == true) Serial.println(F("Power on / sun up"));
               auto_power_on = true;
