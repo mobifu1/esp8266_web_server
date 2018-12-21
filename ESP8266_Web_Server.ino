@@ -15,8 +15,9 @@
   debuging=false/true               serial debuging informations
   invert_gpio=false/true            invert the output signal for each relay-boards
   config -get                       show all stored variable on serial port
+  img_src=default                   https://www.timeanddate.com/scripts/sunmap.php
 
-  after setting changes, you have to restart the device.
+  after setting changes (ssid or password), you have to restart the device.
 */
 
 #include <ESP8266WiFi.h>
@@ -77,7 +78,7 @@ const int output1 = 0; //GPIO 0
 const int output2 = 2; //GPIO 2
 
 //EEprom statements
-const int eeprom_size = 128 ; //Size can be anywhere between 4 and 4096 bytes
+const int eeprom_size = 256 ; //Size can be anywhere between 4 and 4096 bytes
 
 int auto_switch_by_sun_down_eeprom_address = 0;//boolean value
 int auto_switch_by_sun_up_eeprom_address = 1;//boolean value
@@ -92,6 +93,7 @@ int auto_switch_on_minute_eeprom_address = 12;//int value
 int ssid_eeprom_address = 16;//string max 22
 int password_eeprom_address = 40;//string max 32
 int web_server_name_eeprom_address = 80;//string max 32
+int img_src_eeprom_address = 120;//string max 96
 
 String serial_line_0;//read bytes from serial port 0
 //-----------------------------------------------------------------
@@ -126,9 +128,11 @@ String sun_psition = "";
 String day_string = "";
 
 String web_server_name = "";
-String versionsname = "(v1.2-r)";
+String versionsname = "(v1.3-r)";
 boolean debuging = false;
-const String weekdays[7] = {"Do", "Fr", "Sa", "So", "Mo", "Di", "Mi" };
+const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
+const String img_src_default = "https://www.timeanddate.com/scripts/sunmap.php";
+String img_src = "";
 //-----------------------------------------------------------------
 void setup() {
 
@@ -506,6 +510,12 @@ void website() {
             client.println("<p>" + sunrise_string + " / " + sunset_string + "</p>");
             client.println("<p>" + sun_psition + "</p>");
 
+            //Pic
+            client.println(F("<wbr>"));
+            client.print(F("<img src=\""));
+            client.print(img_src);
+            client.println(F("\" alt=\"pic\" width=\"571\" height=\"300\">"));
+
             //auto switch on button (by sun set)
             client.println(F("<p>----------------------------------------------------------------------------</p>"));
             client.println("<p>Auto switch on at Sunset / Auto switch off at: " + auto_switch_off_string + "</p>");
@@ -543,6 +553,7 @@ void website() {
             client.println(F("<input type=\"submit\">"));
             client.println(F("</form>"));
 
+            client.println(F("<p>----------------------------------------------------------------------------</p>"));
             client.println(F("</body></html>"));
 
             //The HTTP response ends with another blank line
@@ -802,6 +813,10 @@ void load_config() {
 
   invert_gpio = read_eeprom_bool(invert_gpio_eeprom_address);
   Serial.println("Invert GPIO=" + String(invert_gpio));
+
+  img_src = read_eeprom_string(img_src_eeprom_address);
+  if (img_src == "default")img_src = img_src_default;
+  Serial.println("Img Src=" + String(img_src));
 }
 //-----------------------------------------------------------------
 void lookup_commands() {
@@ -877,6 +892,12 @@ void lookup_commands() {
       Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
       load_config();
     }
+  }
+
+  if (serial_line_0.substring(0, 8) == F("img_src=")) {
+    write_eeprom_string(img_src_eeprom_address, serial_line_0.substring(8, length_));
+    Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
+    load_config();
   }
 
   if (serial_line_0.substring(0, 11) == F("config -get")) {
