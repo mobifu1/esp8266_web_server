@@ -16,6 +16,7 @@
   invert_gpio=false/true            invert the output signal for each relay-boards
   config -get                       show all stored variable on serial port
   img_src=default                   https://www.timeanddate.com/scripts/sunmap.php
+  ip -get                           local IP
 
   after setting changes (ssid or password), you have to restart the device.
 */
@@ -53,8 +54,6 @@ String header;
 // Auxiliar variables to store the current output state
 boolean output1_state;
 boolean output2_state;
-String output1_state_string;
-String output2_state_string;
 boolean invert_gpio;
 
 //Buttons web site activation
@@ -128,11 +127,14 @@ String sun_psition = "";
 String day_string = "";
 
 String web_server_name = "";
-String versionsname = "(v1.3-r)";
 boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
-const String img_src_default = "https://www.timeanddate.com/scripts/sunmap.php";
 String img_src = "";
+#define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
+#define versionsname F("(v1.4-beta)")
+#define default_servername F("ESP8266 ")
+#define html_border F("<p>----------------------------------------------------------------------------</p>")
+
 //-----------------------------------------------------------------
 void setup() {
 
@@ -472,7 +474,6 @@ void website() {
             client.println(F("<link rel=\"icon\" href=\"data:,\">"));
 
             //CSS to style the on/off buttons
-            //Feel free to change the background-color and font-size attributes to fit your preferences
             client.println(F("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}"));
             client.println(F(".button { background-color: #195B6A; border: none; color: white; padding: 16px 40px;"));
             client.println(F("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}"));
@@ -481,11 +482,11 @@ void website() {
 
             //Web Page Heading
             client.println("<body><h1>" + web_server_name + versionsname + "</h1>");
+            client.println(html_border);
 
+            //button 1
             if (button1 == true) {
-              //Display current state, and ON/OFF buttons for GPIO 1
-              client.println("<p>" + output1_state_string + "</p>");
-              // If the output1State is off, it displays the OFF button
+              client.println(F("<p>Button 1</p>"));
               if (output1_state == false) {
                 client.println(F("<p><a href=\"/1/on\"><button class=\"button\">OFF</button></a></p>"));
               } else {
@@ -493,10 +494,9 @@ void website() {
               }
             }
 
+            //button 2
             if (button2 == true) {
-              //Display current state, and ON/OFF buttons for GPIO 2
-              client.println("<p>" + output2_state_string + "</p>");
-              // If the output2State is off, it displays the OFF button
+              client.println(F("<p>Button 2</p>"));
               if (output2_state == false) {
                 client.println(F("<p><a href=\"/2/on\"><button class=\"button\">OFF</button></a></p>"));
               } else {
@@ -505,19 +505,19 @@ void website() {
             }
 
             //time and sunset , sunrise informations
-            client.println(F("<p>----------------------------------------------------------------------------</p>"));
+            client.println(html_border);
             client.println("<p>" + day_string + " / " + time_string + " / " + date_string + "</p>");
             client.println("<p>" + sunrise_string + " / " + sunset_string + "</p>");
             client.println("<p>" + sun_psition + "</p>");
 
-            //Pic
+            //image
             client.println(F("<wbr>"));
             client.print(F("<img src=\""));
             client.print(img_src);
-            client.println(F("\" alt=\"pic\" width=\"571\" height=\"300\">"));
+            client.println(F("\" alt=\"(img-url not reachable)\" width=\"571\" height=\"300\">"));
 
             //auto switch on button (by sun set)
-            client.println(F("<p>----------------------------------------------------------------------------</p>"));
+            client.println(html_border);
             client.println("<p>Auto switch on at Sunset / Auto switch off at: " + auto_switch_off_string + "</p>");
 
             if (auto_switch_by_sun_down == false) { //button for auto_switch_by_sun
@@ -534,7 +534,7 @@ void website() {
             client.println(F("</form>"));
 
             //auto switch off button (by sun rise)
-            client.println(F("<p>----------------------------------------------------------------------------</p>"));
+            client.println(html_border);
             client.println("<p>Auto switch on at: "  + auto_switch_on_string + " / Auto switch off at Sunrise" + "</p>");
 
             //auto switch on button (by sun rise)
@@ -553,7 +553,7 @@ void website() {
             client.println(F("<input type=\"submit\">"));
             client.println(F("</form>"));
 
-            client.println(F("<p>----------------------------------------------------------------------------</p>"));
+            client.println(html_border);
             client.println(F("</body></html>"));
 
             //The HTTP response ends with another blank line
@@ -728,58 +728,45 @@ boolean read_eeprom_bool(int address) {
 //-----------------------------------------------------------------
 void set_gpio_pins(int gpio, boolean state) {
 
-  String gpio_name = "GPIO";
-  String state_string = "State";
-  String state_off = "off";
-  String state_on = "on";
-
   if (gpio == 1 && state == false) {
     output1_state = state;
     if (invert_gpio == false) digitalWrite(output1, LOW);
     if (invert_gpio == true) digitalWrite(output1, HIGH);
-    output1_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_off;
-    if (debuging == true) Serial.println(output1_state_string);
   }
 
   if (gpio == 1 && state == true) {
     output1_state = state;
     if (invert_gpio == false) digitalWrite(output1, HIGH);
     if (invert_gpio == true) digitalWrite(output1, LOW);
-    output1_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_on;
-    if (debuging == true) Serial.println(output1_state_string);
   }
 
   if (gpio == 2 && state == false) {
     output2_state = state;
     if (invert_gpio == false) digitalWrite(output2, LOW);
     if (invert_gpio == true) digitalWrite(output2, HIGH);
-    output2_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_off;
-    if (debuging == true) Serial.println(output2_state_string);
   }
 
   if (gpio == 2 && state == true) {
     output2_state = state;
     if (invert_gpio == false) digitalWrite(output2, HIGH);
     if (invert_gpio == true) digitalWrite(output2, LOW);
-    output2_state_string = gpio_name + " " + gpio + " " + state_string + " " + state_on;
-    if (debuging == true) Serial.println(output2_state_string);
   }
 }
 //-----------------------------------------------------------------
 void load_config() {
 
-  Serial.println(F("Config load:"));
+  Serial.println(F("config load:"));
 
   debuging = read_eeprom_bool(debuging_eeprom_address);
-  Serial.println("Debuging=" + String(debuging));
+  Serial.println("debuging=" + String(debuging));
 
   String value = "";
   value = read_eeprom_string(ssid_eeprom_address);
   strcpy(ssid, value.c_str());
-  Serial.println("SSID=" + String(ssid));
+  Serial.println("ssid=" + String(ssid));
   value = read_eeprom_string(password_eeprom_address);
   strcpy(password, value.c_str());
-  Serial.println("Password=" + String(password));
+  Serial.println("password=" + String(password));
 
   auto_switch_by_sun_down = read_eeprom_bool(auto_switch_by_sun_down_eeprom_address);
   auto_switch_by_sun_up = read_eeprom_bool(auto_switch_by_sun_up_eeprom_address);
@@ -787,8 +774,22 @@ void load_config() {
   auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
   auto_switch_off_minute = read_eeprom_int(auto_switch_off_minute_eeprom_address);
 
+  if (auto_switch_off_hour == 65535) { //format the dirt
+    write_eeprom_int(auto_switch_off_hour_eeprom_address, auto_switch_off_hour_min);//default
+    write_eeprom_int(auto_switch_off_minute_eeprom_address, 0);
+    auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
+    auto_switch_off_minute = read_eeprom_int(auto_switch_off_minute_eeprom_address);
+  }
+
   auto_switch_on_hour = read_eeprom_int(auto_switch_on_hour_eeprom_address);
   auto_switch_on_minute = read_eeprom_int(auto_switch_on_minute_eeprom_address);
+
+  if (auto_switch_on_hour == 65535) { //format the dirt
+    write_eeprom_int(auto_switch_on_hour_eeprom_address, auto_switch_on_hour_max);//default
+    write_eeprom_int(auto_switch_on_minute_eeprom_address, 0);
+    auto_switch_on_hour = read_eeprom_int(auto_switch_on_hour_eeprom_address);
+    auto_switch_on_minute = read_eeprom_int(auto_switch_on_minute_eeprom_address);
+  }
 
   //Format time to leading zeros:
   auto_switch_off_string = "";
@@ -805,18 +806,25 @@ void load_config() {
   auto_switch_on_string += String(auto_switch_on_minute);
 
   button1 = read_eeprom_bool(button1_eeprom_address);
-  Serial.println("Button1=" + String(button1));
+  Serial.println("button1=" + String(button1));
+
   button2 = read_eeprom_bool(button2_eeprom_address);
-  Serial.println("Button2=" + String(button2));
+  Serial.println("button2=" + String(button2));
+
   web_server_name = read_eeprom_string(web_server_name_eeprom_address);
-  Serial.println("Servername=" + web_server_name);
+  char searchChar = 255;
+  if (web_server_name.indexOf(searchChar) >= 0) { //format the dirt
+    write_eeprom_string(web_server_name_eeprom_address, default_servername );//default
+    web_server_name = read_eeprom_string(web_server_name_eeprom_address);
+  }
+  Serial.println("servername=" + web_server_name);
 
   invert_gpio = read_eeprom_bool(invert_gpio_eeprom_address);
-  Serial.println("Invert GPIO=" + String(invert_gpio));
+  Serial.println("invert_gpio=" + String(invert_gpio));
 
   img_src = read_eeprom_string(img_src_eeprom_address);
   if (img_src == "default")img_src = img_src_default;
-  Serial.println("Img Src=" + String(img_src));
+  Serial.println("img_src=" + String(img_src));
 }
 //-----------------------------------------------------------------
 void lookup_commands() {
@@ -898,6 +906,11 @@ void lookup_commands() {
     write_eeprom_string(img_src_eeprom_address, serial_line_0.substring(8, length_));
     Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
     load_config();
+  }
+
+  if (serial_line_0.substring(0, 7) == F("ip -get")) {
+    Serial.print(F("ip="));
+    Serial.println(WiFi.localIP());
   }
 
   if (serial_line_0.substring(0, 11) == F("config -get")) {
