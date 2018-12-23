@@ -44,7 +44,6 @@ struct dstRule EndRule = {"CET", Last, Sun, Oct, 3, 1800};       // Standard tim
 char* ssid = "ssid------------";
 char* password = "password------------";
 
-
 // Set web server port number to 80
 WiFiServer server(80);
 
@@ -131,8 +130,8 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("(v1.4-beta)")
-#define default_servername F("ESP8266 ")
+#define versionsname F("(v1.4-r)")
+#define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
 
 //-----------------------------------------------------------------
@@ -277,9 +276,6 @@ void time_split_parameter (String line) { //11/23/2018 03:57:30pm CET
 
   time_string = "Time: " + lead_zero_hour + String(hour_) + ":" + lead_zero_minute + String(minute_) + ":" + lead_zero_second + String(second_) + " " + european_time;
   date_string = "Date: " + lead_zero_day + String(day_) + "." + lead_zero_month + String(month_) + "." + String(year_);
-
-  //Serial.println(time_string);
-  //Serial.println(date_string);
 }
 //-----------------------------------------------------------------
 void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
@@ -481,7 +477,7 @@ void website() {
             client.println(F("<meta http-equiv=\"refresh\" content=\"30\">\r\n"));
 
             //Web Page Heading
-            client.println("<body><h1>" + web_server_name + versionsname + "</h1>");
+            client.println("<body><h1>" + web_server_name + " " + versionsname + "</h1>");
             client.println(html_border);
 
             //button 1
@@ -544,7 +540,7 @@ void website() {
               client.println(F("<p><a href=\"/4/off\"><button class=\"button button2\">ON</button></a></p>"));
             }
             if (weekend == true) {
-              client.println("<p>Weekend Modus</p>");
+              client.println("<p>Weekend Quiet Modus On</p>");
             }
             //inputform to define the auto switch on time
             client.println(F("<form action=\"/action_page.php\">"));
