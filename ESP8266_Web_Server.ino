@@ -53,6 +53,7 @@ String header;
 // Auxiliar variables to store the current output state
 boolean output1_state;
 boolean output2_state;
+boolean input1_state;
 boolean invert_gpio;
 
 //Buttons web site activation
@@ -60,20 +61,23 @@ boolean button1;
 boolean button2;
 
 boolean auto_switch_by_sun_down = false;
-float auto_switch_off_hour_min = 16;//16:00 Uhr local time
-float auto_switch_off_hour_max = 23;//23:00 Uhr local time
+float auto_switch_off_hour_min = 16; //16:00 Uhr local time
+float auto_switch_off_hour_max = 23; //23:00 Uhr local time
 int auto_switch_off_hour;
 int auto_switch_off_minute;
 
 boolean auto_switch_by_sun_up = false;
-float auto_switch_on_hour_min = 5;//05:00 Uhr local time
+float auto_switch_on_hour_min = 5;  //05:00 Uhr local time
 float auto_switch_on_hour_max  = 9; //09:00 Uhr local time
 int auto_switch_on_hour;
 int auto_switch_on_minute;
 
-// Assign output variables to GPIO pins
-const int output1 = 0; //GPIO 0
-const int output2 = 2; //GPIO 2
+//Output variables to GPIO pins, depending on used hardware
+const int output1 = 0;    //GPIO 0  Boarord:ESP8266-01
+const int output2 = 2;    //GPIO 2  Boarord:ESP8266-01 > Pin also used for UART Flash-Mode
+//const int input1 = 2;   //GPIO 2  Boarord:Sonoff S20 > Button > pressed = HIGH-Level
+//const int output1 = 12; //GPIO 12 Boarord:Sonoff S20 > Relais
+//const int output2 = 13; //GPIO 13 Boarord:Sonoff S20 > LED
 
 //EEprom statements
 const int eeprom_size = 256 ; //Size can be anywhere between 4 and 4096 bytes
@@ -130,7 +134,7 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("(v1.4-r)")
+#define versionsname F("(v1.5-beta)")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
 
@@ -144,14 +148,6 @@ void setup() {
 
   //Load config
   load_config();
-
-  //Initialize the output variables as outputs
-  pinMode(output1, OUTPUT);
-  pinMode(output2, OUTPUT);
-
-  //Set outputs to LOW
-  digitalWrite(output1, LOW);
-  digitalWrite(output2, LOW);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -177,6 +173,7 @@ void setup() {
 void loop() {
 
   read_serial_port_0();
+  read_input_pin();
   website();
 
   if (readyForNtpUpdate)
@@ -396,32 +393,32 @@ void website() {
             client.println();
 
             //Handle the incoming information from the website user
-            if (header.indexOf(F("GET /2/on")) >= 0) {
-              if (auto_switch_by_sun_down == false) {
+            if (header.indexOf(F("GET /2/on")) >= 0) {//button2
+              if (auto_switch_by_sun_down == false && auto_switch_by_sun_up == false) {
                 set_gpio_pins(2, true);
               }
 
-            } else if (header.indexOf(F("GET /2/off")) >= 0) {
-              if (auto_switch_by_sun_down == false) {
+            } else if (header.indexOf(F("GET /2/off")) >= 0) {//button2
+              if (auto_switch_by_sun_down == false && auto_switch_by_sun_up == false) {
                 set_gpio_pins(2, false);
               }
 
-            } else if (header.indexOf(F("GET /1/on")) >= 0) {
-              if (auto_switch_by_sun_down == false) {
+            } else if (header.indexOf(F("GET /1/on")) >= 0) {//button1
+              if (auto_switch_by_sun_down == false && auto_switch_by_sun_up == false) {
                 set_gpio_pins(1, true);
               }
 
-            } else if (header.indexOf(F("GET /1/off")) >= 0) {
-              if (auto_switch_by_sun_down == false) {
+            } else if (header.indexOf(F("GET /1/off")) >= 0) {//button1
+              if (auto_switch_by_sun_down == false && auto_switch_by_sun_up == false) {
                 set_gpio_pins(1, false);
               }
 
-            } else if (header.indexOf(F("GET /3/off")) >= 0) {
+            } else if (header.indexOf(F("GET /3/off")) >= 0) {//button3
               write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
               load_config();
               if (debuging == true) Serial.println(F("Auto Modus 1 off"));
 
-            } else if (header.indexOf(F("GET /3/on")) >= 0) {
+            } else if (header.indexOf(F("GET /3/on")) >= 0) {//button3
               write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, true);
               load_config();
               if (debuging == true) Serial.println(F("Auto Modus 1 on"));
@@ -439,12 +436,12 @@ void website() {
                 if (debuging == true) Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour) + ":" + String(auto_switch_off_minute));
               }
 
-            } else if (header.indexOf(F("GET /4/off")) >= 0) {
+            } else if (header.indexOf(F("GET /4/off")) >= 0) {//button4
               write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
               load_config();
               if (debuging == true) Serial.println(F("Auto Modus 2 off"));
 
-            } else if (header.indexOf(F("GET /4/on")) >= 0) {
+            } else if (header.indexOf(F("GET /4/on")) >= 0) {//button4
               write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
               load_config();
               if (debuging == true) Serial.println(F("Auto Modus 2 on"));
@@ -722,30 +719,54 @@ boolean read_eeprom_bool(int address) {
   EEPROM.end();
 }
 //-----------------------------------------------------------------
+void read_input_pin() { // needed for sonoff S20 > Switch Button
+
+  //  int val = digitalRead(input1);
+  //
+  //  if (auto_switch_by_sun_down == false && auto_switch_by_sun_up == false) {
+  //    if (val == HIGH) {
+  //      if (input1_state == true) {
+  //        input1_state = false;
+  //        set_gpio_pins(1, false);
+  //        delay(500);
+  //      }
+  //      else {
+  //        input1_state = true;
+  //        set_gpio_pins(1, true);
+  //        delay(500);
+  //      }
+  //    }
+  //  }
+}
+//-----------------------------------------------------------------
 void set_gpio_pins(int gpio, boolean state) {
 
-  if (gpio == 1 && state == false) {
-    output1_state = state;
-    if (invert_gpio == false) digitalWrite(output1, LOW);
-    if (invert_gpio == true) digitalWrite(output1, HIGH);
+  if (button1 == true) {
+    if (gpio == 1 && state == false) {
+      output1_state = state;
+      if (invert_gpio == false) digitalWrite(output1, LOW);
+      if (invert_gpio == true) digitalWrite(output1, HIGH);
+    }
+
+    if (gpio == 1 && state == true) {
+      output1_state = state;
+      if (invert_gpio == false) digitalWrite(output1, HIGH);
+      if (invert_gpio == true) digitalWrite(output1, LOW);
+    }
   }
 
-  if (gpio == 1 && state == true) {
-    output1_state = state;
-    if (invert_gpio == false) digitalWrite(output1, HIGH);
-    if (invert_gpio == true) digitalWrite(output1, LOW);
-  }
+  if (button2 == true) {
+    if (gpio == 2 && state == false) {
+      output2_state = state;
+      if (invert_gpio == false) digitalWrite(output2, LOW);
+      if (invert_gpio == true) digitalWrite(output2, HIGH);
+    }
 
-  if (gpio == 2 && state == false) {
-    output2_state = state;
-    if (invert_gpio == false) digitalWrite(output2, LOW);
-    if (invert_gpio == true) digitalWrite(output2, HIGH);
-  }
-
-  if (gpio == 2 && state == true) {
-    output2_state = state;
-    if (invert_gpio == false) digitalWrite(output2, HIGH);
-    if (invert_gpio == true) digitalWrite(output2, LOW);
+    if (gpio == 2 && state == true) {
+      output2_state = state;
+      if (invert_gpio == false) digitalWrite(output2, HIGH);
+      if (invert_gpio == true) digitalWrite(output2, LOW);
+    }
   }
 }
 //-----------------------------------------------------------------
@@ -771,7 +792,7 @@ void load_config() {
   auto_switch_off_minute = read_eeprom_int(auto_switch_off_minute_eeprom_address);
 
   if (auto_switch_off_hour == 65535) { //format the dirt
-    write_eeprom_int(auto_switch_off_hour_eeprom_address, auto_switch_off_hour_min);//default
+    write_eeprom_int(auto_switch_off_hour_eeprom_address, auto_switch_off_hour_max);//default
     write_eeprom_int(auto_switch_off_minute_eeprom_address, 0);
     auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
     auto_switch_off_minute = read_eeprom_int(auto_switch_off_minute_eeprom_address);
@@ -781,7 +802,7 @@ void load_config() {
   auto_switch_on_minute = read_eeprom_int(auto_switch_on_minute_eeprom_address);
 
   if (auto_switch_on_hour == 65535) { //format the dirt
-    write_eeprom_int(auto_switch_on_hour_eeprom_address, auto_switch_on_hour_max);//default
+    write_eeprom_int(auto_switch_on_hour_eeprom_address, auto_switch_on_hour_min);//default
     write_eeprom_int(auto_switch_on_minute_eeprom_address, 0);
     auto_switch_on_hour = read_eeprom_int(auto_switch_on_hour_eeprom_address);
     auto_switch_on_minute = read_eeprom_int(auto_switch_on_minute_eeprom_address);
@@ -801,10 +822,26 @@ void load_config() {
   if (auto_switch_on_minute < 10) auto_switch_on_string += "0";
   auto_switch_on_string += String(auto_switch_on_minute);
 
+  //load button1 value
   button1 = read_eeprom_bool(button1_eeprom_address);
+  if (button1 == true) {
+    pinMode(output1, OUTPUT);   //needed for using relais to switch power
+    digitalWrite(output1, LOW); //Set outputs to LOW
+  }
+  else {
+    pinMode(output1, INPUT);  //needed for using sonoff with connected hardware
+  }
   Serial.println("button1=" + String(button1));
 
+  //load button2 value
   button2 = read_eeprom_bool(button2_eeprom_address);
+  if (button2 == true) {
+    pinMode(output2, OUTPUT);   //needed for using relais to switch power
+    digitalWrite(output2, LOW); //Set outputs to LOW
+  }
+  else {
+    pinMode(output2, INPUT); //needed for using sonoff with connected hardware
+  }
   Serial.println("button2=" + String(button2));
 
   web_server_name = read_eeprom_string(web_server_name_eeprom_address);
