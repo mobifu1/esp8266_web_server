@@ -62,12 +62,12 @@ boolean button2;
 
 boolean auto_switch_by_sun_down = false;
 float auto_switch_off_hour_min = 16; //16:00 Uhr local time
-float auto_switch_off_hour_max = 23; //23:00 Uhr local time
+float auto_switch_off_hour_max = 24; //23:59 Uhr local time
 int auto_switch_off_hour;
 int auto_switch_off_minute;
 
 boolean auto_switch_by_sun_up = false;
-float auto_switch_on_hour_min = 5;  //05:00 Uhr local time
+float auto_switch_on_hour_min = 0;  //00:00 Uhr local time
 float auto_switch_on_hour_max  = 9; //09:00 Uhr local time
 int auto_switch_on_hour;
 int auto_switch_on_minute;
@@ -475,10 +475,11 @@ void website() {
 
             //Web Page Heading
             client.println("<body><h1>" + web_server_name + " " + versionsname + "</h1>");
-            client.println(html_border);
+
 
             //button 1
             if (button1 == true) {
+              client.println(html_border);
               client.println(F("<p>Button 1</p>"));
               if (output1_state == false) {
                 client.println(F("<p><a href=\"/1/on\"><button class=\"button\">OFF</button></a></p>"));
@@ -489,6 +490,7 @@ void website() {
 
             //button 2
             if (button2 == true) {
+              client.println(html_border);
               client.println(F("<p>Button 2</p>"));
               if (output2_state == false) {
                 client.println(F("<p><a href=\"/2/on\"><button class=\"button\">OFF</button></a></p>"));
@@ -521,7 +523,7 @@ void website() {
 
             //inputform to define the auto switch off time
             client.println(F("<form action=\"/action_page.php\">"));
-            client.println(F("Time off (between 16:00 and 23:00):"));
+            client.println(F("Time off (between 16:00 and 23:59):"));
             client.println(F("<input type=\"time\" name=\"Switch_off_Time\">"));
             client.println(F("<input type=\"submit\">"));
             client.println(F("</form>"));
@@ -541,7 +543,7 @@ void website() {
             }
             //inputform to define the auto switch on time
             client.println(F("<form action=\"/action_page.php\">"));
-            client.println(F("Time on (between 05:00 and 09:00):"));
+            client.println(F("Time on (between 00:00 and 09:00):"));
             client.println(F("<input type=\"time\" name=\"Switch_on_Time\">"));
             client.println(F("<input type=\"submit\">"));
             client.println(F("</form>"));
@@ -792,7 +794,7 @@ void load_config() {
   auto_switch_off_minute = read_eeprom_int(auto_switch_off_minute_eeprom_address);
 
   if (auto_switch_off_hour == 65535) { //format the dirt
-    write_eeprom_int(auto_switch_off_hour_eeprom_address, auto_switch_off_hour_max);//default
+    write_eeprom_int(auto_switch_off_hour_eeprom_address, auto_switch_off_hour_max - 1); //default value
     write_eeprom_int(auto_switch_off_minute_eeprom_address, 0);
     auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
     auto_switch_off_minute = read_eeprom_int(auto_switch_off_minute_eeprom_address);
@@ -802,7 +804,7 @@ void load_config() {
   auto_switch_on_minute = read_eeprom_int(auto_switch_on_minute_eeprom_address);
 
   if (auto_switch_on_hour == 65535) { //format the dirt
-    write_eeprom_int(auto_switch_on_hour_eeprom_address, auto_switch_on_hour_min);//default
+    write_eeprom_int(auto_switch_on_hour_eeprom_address, auto_switch_on_hour_min + 1);//default value
     write_eeprom_int(auto_switch_on_minute_eeprom_address, 0);
     auto_switch_on_hour = read_eeprom_int(auto_switch_on_hour_eeprom_address);
     auto_switch_on_minute = read_eeprom_int(auto_switch_on_minute_eeprom_address);
