@@ -134,9 +134,10 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("(v1.5-beta)")
+#define versionsname F("(v1.6-beta)")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
+#define lock_info F("<p>Locked by Auto Modus</p>")
 
 //-----------------------------------------------------------------
 void setup() {
@@ -245,6 +246,10 @@ void time_split_parameter (String line) { //11/23/2018 03:57:30pm CET
 
   if (am_pm == "pm") {
     if (hour_ >= 1 && hour_ <= 11) hour_ += 12;
+  }
+
+  if (am_pm == "am") {
+    if (hour_ == 12) hour_ -= 12;
   }
 
   if (european_time == "CET") time_diff_to_greenwich = 1;
@@ -486,6 +491,9 @@ void website() {
               } else {
                 client.println(F("<p><a href=\"/1/off\"><button class=\"button button2\">ON</button></a></p>"));
               }
+              if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
+                client.println(lock_info);
+              }
             }
 
             //button 2
@@ -496,6 +504,9 @@ void website() {
                 client.println(F("<p><a href=\"/2/on\"><button class=\"button\">OFF</button></a></p>"));
               } else {
                 client.println(F("<p><a href=\"/2/off\"><button class=\"button button2\">ON</button></a></p>"));
+              }
+              if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
+                client.println(lock_info);
               }
             }
 
