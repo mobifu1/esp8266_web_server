@@ -104,6 +104,7 @@ Ticker ticker1;
 int32_t tick;
 
 bool readyForNtpUpdate = false;// flag changed in the ticker function to start NTP Update
+bool ntp_is_allready_set = false;
 simpleDSTadjust dstAdjusted(StartRule, EndRule);// Setup simpleDSTadjust Library rules
 
 float lat = 53.48;//my home location
@@ -177,9 +178,10 @@ void loop() {
   read_input_pin();
   website();
 
-  if (readyForNtpUpdate)
-  {
+  if (readyForNtpUpdate) {
+
     readyForNtpUpdate = false;
+
     printTime(0);
     updateNTP();
     if (debuging == true) Serial.print(F("\nUpdated time from NTP Server: "));
@@ -196,8 +198,8 @@ void loop() {
 void secTicker() {//NTP timer update ticker
 
   tick--;
-  if (tick <= 0)
-  {
+  if (tick <= 0) {
+
     readyForNtpUpdate = true;
     tick = NTP_UPDATE_INTERVAL_SEC; // Re-arm
   }
@@ -207,6 +209,8 @@ void secTicker() {//NTP timer update ticker
 //-----------------------------------------------------------------
 void updateNTP() {
 
+  ntp_is_allready_set = false;
+
   configTime(timezone * 3600, 0, NTP_SERVERS);
 
   delay(500);
@@ -214,6 +218,8 @@ void updateNTP() {
     if (debuging == true) Serial.print(F("#"));
     delay(1000);
   }
+
+  ntp_is_allready_set = true;
 }
 //-----------------------------------------------------------------
 void printTime(time_t offset) {
@@ -341,12 +347,23 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
     }
 
     if (auto_power_on == true) {
-      set_gpio_pins(1, true);
-      set_gpio_pins(2, true);
+      if (ntp_is_allready_set == true) {
+        set_gpio_pins(1, true);
+        set_gpio_pins(2, true);
+      }
+      else {
+        if (debuging == true) Serial.println(F("Cant switch while NTP is not allready set !"));
+      }
+
     }
     else {
-      set_gpio_pins(1, false);
-      set_gpio_pins(2, false);
+      if (ntp_is_allready_set == true) {
+        set_gpio_pins(1, false);
+        set_gpio_pins(2, false);
+      }
+      else {
+        if (debuging == true) Serial.println(F("Cant switch while NTP is not allready set !"));
+      }
     }
   }
 
@@ -560,6 +577,19 @@ void website() {
             client.println(F("</form>"));
 
             client.println(html_border);
+
+            if (ntp_is_allready_set = true) client.print(F("<p>NTP OK / "));
+            if (ntp_is_allready_set = false) client.print(F("<p>NTP ? / "));
+
+            client.print(F("Next NTP-Update in: "));
+            if (tick > 60) {
+              client.print(String(tick / 60));
+              client.println(F(" Minutes</p>"));
+            }
+            else {
+              client.print(String(tick));
+              client.println(F(" Seconds</p>"));
+            }
             client.println(F("</body></html>"));
 
             //The HTTP response ends with another blank line
