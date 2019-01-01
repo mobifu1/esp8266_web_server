@@ -578,8 +578,8 @@ void website() {
 
             client.println(html_border);
 
-            if (ntp_is_allready_set = true) client.print(F("<p>NTP OK / "));
-            if (ntp_is_allready_set = false) client.print(F("<p>NTP ? / "));
+            if (ntp_is_allready_set == true) client.print(F("<p>NTP OK / "));
+            if (ntp_is_allready_set == false) client.print(F("<p>NTP ? / "));
 
             client.print(F("Next NTP-Update in: "));
             if (tick > 60) {
