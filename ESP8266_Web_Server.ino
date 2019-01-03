@@ -73,11 +73,11 @@ int auto_switch_on_hour;
 int auto_switch_on_minute;
 
 //Output variables to GPIO pins, depending on used hardware
-const int output1 = 0;    //GPIO 0  Boarord:ESP8266-01
-const int output2 = 2;    //GPIO 2  Boarord:ESP8266-01 > Pin also used for UART Flash-Mode
-//const int input1 = 2;   //GPIO 2  Boarord:Sonoff S20 > Button > pressed = HIGH-Level
-//const int output1 = 12; //GPIO 12 Boarord:Sonoff S20 > Relais
-//const int output2 = 13; //GPIO 13 Boarord:Sonoff S20 > LED
+const int output1 = 0;    //GPIO 0  Board:ESP8266-01
+const int output2 = 2;    //GPIO 2  Board:ESP8266-01 > Pin also used for UART Flash-Mode
+//const int input1 = 0;   //GPIO 2  Board:Sonoff S20 > Button > pressed = HIGH-Level
+//const int output1 = 12; //GPIO 12 Board:Sonoff S20 > Relais
+//const int output2 = 13; //GPIO 13 Board:Sonoff S20 > LED
 
 //EEprom statements
 const int eeprom_size = 256 ; //Size can be anywhere between 4 and 4096 bytes
@@ -135,7 +135,7 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("(v1.6-beta)")
+#define versionsname F("(v1.6-r)")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
 #define lock_info F("<p>Locked by Auto Modus</p>")
@@ -767,7 +767,7 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
   //  int val = digitalRead(input1);
   //
   //  if (auto_switch_by_sun_down == false && auto_switch_by_sun_up == false) {
-  //    if (val == HIGH) {
+  //    if (val == LOW) {
   //      if (input1_state == true) {
   //        input1_state = false;
   //        set_gpio_pins(1, false);
