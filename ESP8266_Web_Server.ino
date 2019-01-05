@@ -75,7 +75,7 @@ int auto_switch_on_minute;
 //Output variables to GPIO pins, depending on used hardware
 const int output1 = 0;    //GPIO 0  Board:ESP8266-01
 const int output2 = 2;    //GPIO 2  Board:ESP8266-01 > Pin also used for UART Flash-Mode
-//const int input1 = 0;   //GPIO 2  Board:Sonoff S20 > Button > pressed = HIGH-Level
+//const int input1 = 2;   //GPIO 2  Board:Sonoff S20 > Button > pressed = LOW-Level (Pin also used for UART Flash-Mode)
 //const int output1 = 12; //GPIO 12 Board:Sonoff S20 > Relais
 //const int output2 = 13; //GPIO 13 Board:Sonoff S20 > LED
 
@@ -83,19 +83,19 @@ const int output2 = 2;    //GPIO 2  Board:ESP8266-01 > Pin also used for UART Fl
 const int eeprom_size = 256 ; //Size can be anywhere between 4 and 4096 bytes
 
 int auto_switch_by_sun_down_eeprom_address = 0;//boolean value
-int auto_switch_by_sun_up_eeprom_address = 1;//boolean value
-int debuging_eeprom_address = 2;        //boolean value
-int button1_eeprom_address = 3;         //boolean value
-int button2_eeprom_address = 4;         //boolean value
-int invert_gpio_eeprom_address = 5;     //boolean value
-int auto_switch_off_hour_eeprom_address = 6;//int value
-int auto_switch_off_minute_eeprom_address = 8;//int value
-int auto_switch_on_hour_eeprom_address = 10;//int value
-int auto_switch_on_minute_eeprom_address = 12;//int value
-int ssid_eeprom_address = 16;//string max 22
-int password_eeprom_address = 40;//string max 32
-int web_server_name_eeprom_address = 80;//string max 32
-int img_src_eeprom_address = 120;//string max 96
+int auto_switch_by_sun_up_eeprom_address = 1;  //boolean value
+int debuging_eeprom_address = 2;               //boolean value
+int button1_eeprom_address = 3;                //boolean value
+int button2_eeprom_address = 4;                //boolean value
+int invert_gpio_eeprom_address = 5;            //boolean value
+int auto_switch_off_hour_eeprom_address = 6;   //int value
+int auto_switch_off_minute_eeprom_address = 8; //int value
+int auto_switch_on_hour_eeprom_address = 10;   //int value
+int auto_switch_on_minute_eeprom_address = 12; //int value
+int ssid_eeprom_address = 16;                  //string max 22
+int password_eeprom_address = 40;              //string max 32
+int web_server_name_eeprom_address = 80;       //string max 32
+int img_src_eeprom_address = 120;              //string max 96
 
 String serial_line_0;//read bytes from serial port 0
 //-----------------------------------------------------------------
