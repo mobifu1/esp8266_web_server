@@ -135,7 +135,7 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("(v1.6-r)")
+#define versionsname F("(v1.6.1-r)")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
 #define lock_info F("<p>Locked by Auto Modus</p>")
@@ -184,7 +184,7 @@ void loop() {
 
     printTime(0);
     updateNTP();
-    if (debuging == true) Serial.print(F("\nUpdated time from NTP Server: "));
+    if (debuging == true) Serial.print(F("Updated Time from NTP Server: "));
     printTime(0);
     if (debuging == true) Serial.print(F("Next NTP Update: "));
     printTime(tick);
@@ -209,11 +209,13 @@ void secTicker() {//NTP timer update ticker
 //-----------------------------------------------------------------
 void updateNTP() {
 
+  if (debuging == true) Serial.print(F("Start NTP Update: "));
   ntp_is_allready_set = false;
 
   configTime(timezone * 3600, 0, NTP_SERVERS);
 
-  delay(500);
+  delay(1000);
+
   while (!time(nullptr)) {
     if (debuging == true) Serial.print(F("#"));
     delay(1000);
@@ -326,7 +328,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
       if (time_off >= auto_switch_off_hour_min && time_now <= auto_switch_off_hour_max) {// 16 & 23
         if (time_now >= sunset) {
           if (time_now < time_off) {
-            if (debuging == true) Serial.println(F("Power on / sun down"));
+            if (debuging == true) Serial.println(F("Auto Switch On criteria: Sun down"));
             auto_power_on = true;
           }
         }
@@ -338,7 +340,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
         if (time_now < sunrise) {
           if (time_now >= time_on) {
             if (weekend == false) {
-              if (debuging == true) Serial.println(F("Power on / sun up"));
+              if (debuging == true) Serial.println(F("Auto Switch On criteria: Sun up"));
               auto_power_on = true;
             }
           }
@@ -352,7 +354,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
         set_gpio_pins(2, true);
       }
       else {
-        if (debuging == true) Serial.println(F("Cant switch while NTP is not allready set !"));
+        if (debuging == true) Serial.println(F("Auto Switch on is locked while NTP is in update process"));
       }
 
     }
@@ -362,7 +364,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
         set_gpio_pins(2, false);
       }
       else {
-        if (debuging == true) Serial.println(F("Cant switch while NTP is not allready set !"));
+        if (debuging == true) Serial.println(F("Auto Switch off is locked while NTP is in update process"));
       }
     }
   }
@@ -396,7 +398,7 @@ void website() {
   WiFiClient client = server.available();   // Listen for incoming clients
 
   if (client) {                             // If a new client connects,
-    if (debuging == true) Serial.println(F("New Client."));          // print a message out in the serial port
+    if (debuging == true) Serial.println(F("New Client"));          // print a message out in the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
     while (client.connected()) {            // loop while the client's connected
       if (client.available()) {             // if there's bytes to read from the client,
@@ -609,7 +611,7 @@ void website() {
 
     //Close the connection
     client.stop();
-    if (debuging == true) Serial.println(F("Client disconnected."));
+    if (debuging == true) Serial.println(F("Client disconnected"));
     if (debuging == true) Serial.println("");
   }
 }
@@ -626,10 +628,10 @@ int day_of_week (long epoch) {
     weekend = false;
   }
 
-  if (debuging == true) {
-    Serial.println("Dow:" + String(day_of_the_week));
-    Serial.println("Wed:" + String(weekend));
-  }
+  //  if (debuging == true) {
+  //    Serial.println("Dow:" + String(day_of_the_week));
+  //    Serial.println("Wed:" + String(weekend));
+  //  }
 
   //Since January 1, 1970 was a Thursday the results are:
   //0=Thursday
@@ -786,35 +788,69 @@ void set_gpio_pins(int gpio, boolean state) {
 
   if (button1 == true) {
     if (gpio == 1 && state == false) {
-      output1_state = state;
-      if (invert_gpio == false) digitalWrite(output1, LOW);
-      if (invert_gpio == true) digitalWrite(output1, HIGH);
+      if (output1_state == true) {
+        output1_state = state;
+        if (invert_gpio == false) {
+          digitalWrite(output1, LOW);
+          if (debuging == true) Serial.println(F("Switch Output 1 > low"));
+        }
+        if (invert_gpio == true) {
+          digitalWrite(output1, HIGH);
+          if (debuging == true) Serial.println(F("Switch Output 1 > high"));
+        }
+      }
     }
 
     if (gpio == 1 && state == true) {
-      output1_state = state;
-      if (invert_gpio == false) digitalWrite(output1, HIGH);
-      if (invert_gpio == true) digitalWrite(output1, LOW);
+      if (output1_state == false) {
+        output1_state = state;
+        if (invert_gpio == false) {
+          digitalWrite(output1, HIGH);
+          if (debuging == true) Serial.println(F("Switch Output 1 > high"));
+        }
+        if (invert_gpio == true) {
+          digitalWrite(output1, LOW);
+          if (debuging == true) Serial.println(F("Switch Output 1 > low"));
+        }
+      }
     }
   }
 
   if (button2 == true) {
     if (gpio == 2 && state == false) {
-      output2_state = state;
-      if (invert_gpio == false) digitalWrite(output2, LOW);
-      if (invert_gpio == true) digitalWrite(output2, HIGH);
+      if (output2_state == true) {
+        output2_state = state;
+        if (invert_gpio == false) {
+          digitalWrite(output2, LOW);
+          if (debuging == true) Serial.println(F("Switch Output 2 > low"));
+        }
+        if (invert_gpio == true) {
+          digitalWrite(output2, HIGH);
+          if (debuging == true) Serial.println(F("Switch Output 2 > high"));
+        }
+      }
     }
 
     if (gpio == 2 && state == true) {
-      output2_state = state;
-      if (invert_gpio == false) digitalWrite(output2, HIGH);
-      if (invert_gpio == true) digitalWrite(output2, LOW);
+      if (output2_state == false) {
+        output2_state = state;
+        if (invert_gpio == false) {
+          digitalWrite(output2, HIGH);
+          if (debuging == true) Serial.println(F("Switch Output 2 > high"));
+        }
+        if (invert_gpio == true) {
+          digitalWrite(output2, LOW);
+          if (debuging == true) Serial.println(F("Switch Output 2 > low"));
+        }
+      }
     }
   }
 }
 //-----------------------------------------------------------------
 void load_config() {
 
+  Serial.println();
+  Serial.println(versionsname);
   Serial.println(F("config load:"));
 
   debuging = read_eeprom_bool(debuging_eeprom_address);
