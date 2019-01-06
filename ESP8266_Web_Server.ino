@@ -73,9 +73,9 @@ int auto_switch_on_hour;
 int auto_switch_on_minute;
 
 //Output variables to GPIO pins, depending on used hardware
-const int output1 = 0;    //GPIO 0  Board:ESP8266-01
-const int output2 = 2;    //GPIO 2  Board:ESP8266-01 > Pin also used for UART Flash-Mode
-//const int input1 = 2;   //GPIO 2  Board:Sonoff S20 > Button > pressed = LOW-Level (Pin also used for UART Flash-Mode)
+const int output1 = 0;    //GPIO 0  Board:ESP8266-01 > Pin also used for UART Flash-Mode
+const int output2 = 2;    //GPIO 2  Board:ESP8266-01
+//const int input1 = 0;   //GPIO 0  Board:Sonoff S20 > Button > pressed = LOW-Level (Pin also used for UART Flash-Mode)
 //const int output1 = 12; //GPIO 12 Board:Sonoff S20 > Relais
 //const int output2 = 13; //GPIO 13 Board:Sonoff S20 > LED
 
@@ -768,8 +768,9 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
 
   //  int val = digitalRead(input1);
   //
-  //  if (auto_switch_by_sun_down == false && auto_switch_by_sun_up == false) {
-  //    if (val == LOW) {
+  //  if (val == LOW) {
+  //    if (auto_switch_by_sun_down == false && auto_switch_by_sun_up == false) {
+  //      if (debuging == true) Serial.println(F("Manual Switch"));
   //      if (input1_state == true) {
   //        input1_state = false;
   //        set_gpio_pins(1, false);
@@ -780,6 +781,10 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
   //        set_gpio_pins(1, true);
   //        delay(500);
   //      }
+  //    }
+  //    if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
+  //      if (debuging == true) Serial.println(F("Manual Switch is locked by Auto Modus"));
+  //      delay(500);
   //    }
   //  }
 }
