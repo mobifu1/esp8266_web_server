@@ -53,7 +53,6 @@ boolean output1_state;
 boolean output2_state;
 boolean input1_state;
 boolean invert_gpio;
-int switch_mode = 0;
 
 //Web site activation
 boolean auto_switch_by_sun_down = false;
@@ -67,6 +66,8 @@ float auto_switch_on_hour_min = 0;  //00:00 Uhr local time
 float auto_switch_on_hour_max  = 9; //09:00 Uhr local time
 int auto_switch_on_hour;
 int auto_switch_on_minute;
+
+int switch_mode;
 
 //Output variables to GPIO pins, depending on used hardware
 const int input1 = 0;   //GPIO 0  Board:Sonoff S20 > Button > pressed = LOW-Level (Pin also used for UART Flash-Mode)
@@ -84,6 +85,7 @@ int auto_switch_off_hour_eeprom_address = 6;   //int value
 int auto_switch_off_minute_eeprom_address = 8; //int value
 int auto_switch_on_hour_eeprom_address = 10;   //int value
 int auto_switch_on_minute_eeprom_address = 12; //int value
+int switch_mode_eeprom_address = 14;           //int value
 int ssid_eeprom_address = 16;                  //string max 22
 int password_eeprom_address = 40;              //string max 32
 int web_server_name_eeprom_address = 80;       //string max 32
@@ -128,7 +130,7 @@ const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday"
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
 #define versionsname F("(v1.6.2-beta")
-#define hardware F("/ Sonoff S20)")
+#define hardwarename F("/ Sonoff S20)")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
 
@@ -320,7 +322,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
       if (time_off >= auto_switch_off_hour_min && time_now <= auto_switch_off_hour_max) {// 16 & 23
         if (time_now >= sunset) {
           if (time_now < time_off) {
-            if (debuging == true) Serial.println(F("Auto Switch On criteria: Sun down"));
+            if (debuging == true) Serial.println(F("Auto Switch On Event: Sun down"));
             auto_power_on = true;
           }
         }
@@ -332,7 +334,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
         if (time_now < sunrise) {
           if (time_now >= time_on) {
             if (weekend == false) {
-              if (debuging == true) Serial.println(F("Auto Switch On criteria: Sun up"));
+              if (debuging == true) Serial.println(F("Auto Switch On Event: Sun up"));
               auto_power_on = true;
             }
           }
@@ -470,7 +472,7 @@ void website() {
             client.println(F("<meta http-equiv=\"refresh\" content=\"30\">\r\n"));
 
             //Web Page Heading
-            client.println("<body><h1>" + web_server_name + " " + versionsname + " " +  hardware + "</h1>");
+            client.println("<body><h1>" + web_server_name + " " + versionsname + " " +  hardwarename + "</h1>");
 
             //time and sunset , sunrise informations
             client.println(html_border);
@@ -723,6 +725,8 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
 
     switch_mode++;
     if (switch_mode > 2)switch_mode = 0;
+    write_eeprom_int(switch_mode_eeprom_address, switch_mode);
+
     if (debuging == true) {
       Serial.print(F("Switch Mode:"));
       Serial.println(String(switch_mode));
@@ -735,9 +739,7 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
       load_config();
       if (debuging == true) Serial.println(F("Auto Modus off"));
       set_gpio_pins(1, true);//Switch Relais on
-      if (debuging == true) Serial.println(F("Switch on"));
-      set_gpio_pins(2, true);//Manual Mode on > LED
-
+      set_gpio_pins(2, false);//Auto Modus off > LED
     }
 
     if (switch_mode == 1) {//Manual Mode > Switch off & Auto Mode off
@@ -747,8 +749,7 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
       load_config();
       if (debuging == true) Serial.println(F("Auto Modus off"));
       set_gpio_pins(1, false);//Switch Relais off
-      if (debuging == true) Serial.println(F("Switch off"));
-      set_gpio_pins(2, true); //Manual Mode on > LED
+      set_gpio_pins(2, false);//Auto Modus off > LED
     }
 
     if (switch_mode == 2) {//Auto Mode on
@@ -757,7 +758,7 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
       write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
       load_config();
       if (debuging == true) Serial.println(F("Auto Modus on"));
-      set_gpio_pins(2, false);//Manual Mode off > LED
+      set_gpio_pins(2, true);//Auto Modus on > LED
     }
   }
 }
@@ -768,7 +769,7 @@ void set_gpio_pins(int gpio, boolean state) {
   if (gpio == 1 && state == false) { //Relais on Board
     if (output1_state == true) {
       output1_state = state;
-      if (debuging == true) Serial.println(F("Switch Output 1 off"));
+      if (debuging == true) Serial.println(F("Switch Relais off"));
       if (invert_gpio == false) {
         digitalWrite(output1, LOW);
       }
@@ -781,7 +782,7 @@ void set_gpio_pins(int gpio, boolean state) {
   if (gpio == 1 && state == true) {
     if (output1_state == false) {
       output1_state = state;
-      if (debuging == true) Serial.println(F("Switch Output 1 on"));
+      if (debuging == true) Serial.println(F("Switch Relais on"));
       if (invert_gpio == false) {
         digitalWrite(output1, HIGH);
       }
@@ -794,7 +795,7 @@ void set_gpio_pins(int gpio, boolean state) {
   if (gpio == 2 && state == false) { //LED on Board
     if (output2_state == true) {
       output2_state = state;
-      if (debuging == true) Serial.println(F("Switch Output 2 off"));
+      if (debuging == true) Serial.println(F("Switch LED off"));
       if (invert_gpio == false) {
         digitalWrite(output2, LOW);
       }
@@ -807,7 +808,7 @@ void set_gpio_pins(int gpio, boolean state) {
   if (gpio == 2 && state == true) {
     if (output2_state == false) {
       output2_state = state;
-      if (debuging == true) Serial.println(F("Switch Output 2 on"));
+      if (debuging == true) Serial.println(F("Switch LED on"));
       if (invert_gpio == false) {
         digitalWrite(output2, HIGH);
       }
@@ -821,7 +822,10 @@ void set_gpio_pins(int gpio, boolean state) {
 void load_config() {
 
   Serial.println();
-  Serial.println(versionsname + " " + hardware);
+  //Serial.println(versionsname + " " + hardwarename);
+  Serial.print(versionsname);
+  Serial.print(F(" "));
+  Serial.println(hardwarename);
   Serial.println(F("config load:"));
 
   debuging = read_eeprom_bool(debuging_eeprom_address);
@@ -834,6 +838,21 @@ void load_config() {
   value = read_eeprom_string(password_eeprom_address);
   strcpy(password, value.c_str());
   Serial.println("password=" + String(password));
+
+  web_server_name = read_eeprom_string(web_server_name_eeprom_address);
+  char searchChar = 255;
+  if (web_server_name.indexOf(searchChar) >= 0) { //format the dirt
+    write_eeprom_string(web_server_name_eeprom_address, default_servername );//default
+    web_server_name = read_eeprom_string(web_server_name_eeprom_address);
+  }
+  Serial.println("servername=" + web_server_name);
+
+  invert_gpio = read_eeprom_bool(invert_gpio_eeprom_address);
+  Serial.println("invert_gpio=" + String(invert_gpio));
+
+  img_src = read_eeprom_string(img_src_eeprom_address);
+  if (img_src == "default")img_src = img_src_default;
+  Serial.println("img_src=" + String(img_src));
 
   auto_switch_by_sun_down = read_eeprom_bool(auto_switch_by_sun_down_eeprom_address);
   auto_switch_by_sun_up = read_eeprom_bool(auto_switch_by_sun_up_eeprom_address);
@@ -872,20 +891,8 @@ void load_config() {
   if (auto_switch_on_minute < 10) auto_switch_on_string += "0";
   auto_switch_on_string += String(auto_switch_on_minute);
 
-  web_server_name = read_eeprom_string(web_server_name_eeprom_address);
-  char searchChar = 255;
-  if (web_server_name.indexOf(searchChar) >= 0) { //format the dirt
-    write_eeprom_string(web_server_name_eeprom_address, default_servername );//default
-    web_server_name = read_eeprom_string(web_server_name_eeprom_address);
-  }
-  Serial.println("servername=" + web_server_name);
-
-  invert_gpio = read_eeprom_bool(invert_gpio_eeprom_address);
-  Serial.println("invert_gpio=" + String(invert_gpio));
-
-  img_src = read_eeprom_string(img_src_eeprom_address);
-  if (img_src == "default")img_src = img_src_default;
-  Serial.println("img_src=" + String(img_src));
+  //Switch Mode
+  switch_mode = read_eeprom_int(switch_mode_eeprom_address);
 }
 //-----------------------------------------------------------------
 void lookup_commands() {
