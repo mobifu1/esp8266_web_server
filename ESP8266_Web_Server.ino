@@ -1,9 +1,12 @@
 /*
-  Web-Server to switch 2 relais by sunset / sunrise or manual via Web-Site
+  Web-Server to switch 1 relais by sunset / sunrise or manual by Sonoff S20 hardware button
+
+  Arduino IDE:
+  Generic ESP8266 Modul
+  Flash Mode: DOUT
 
   How it works:
 
-  Importand Information: Arduino IDE > Arduino/Tools/Erase Flash:All Flash Contents !!!
   After flashing you can send variables by the same serial-comport in to the eeprom of esp8622
 
   Commands:
@@ -63,7 +66,7 @@ int auto_switch_off_minute;
 
 boolean auto_switch_by_sun_up = false;
 float auto_switch_on_hour_min = 0;  //00:00 Uhr local time
-float auto_switch_on_hour_max  = 9; //09:00 Uhr local time
+float auto_switch_on_hour_max = 9;  //09:00 Uhr local time
 int auto_switch_on_hour;
 int auto_switch_on_minute;
 
@@ -525,6 +528,11 @@ void website() {
 
             client.println(html_border);
 
+            client.print(F("<p>Switch Mode:"));
+            if (switch_mode == 0)client.println(F(" Manual On</p>"));
+            if (switch_mode == 1)client.println(F(" Manual Off</p>"));
+            if (switch_mode == 2)client.println(F(" Auto Modus On</p>"));
+
             if (ntp_is_allready_set == true) client.print(F("<p>NTP OK / "));
             if (ntp_is_allready_set == false) client.print(F("<p>NTP ? / "));
 
@@ -537,6 +545,7 @@ void website() {
               client.print(String(tick));
               client.println(F(" Seconds</p>"));
             }
+
             client.println(F("</body></html>"));
 
             //The HTTP response ends with another blank line
@@ -715,8 +724,6 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
 
   if (val == LOW) {
 
-    //delay(200);
-
     while ( val == LOW) { //Wait for Hardware Button Release
       val = digitalRead(input1);
     }
@@ -726,6 +733,7 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
     switch_mode++;
     if (switch_mode > 2)switch_mode = 0;
     write_eeprom_int(switch_mode_eeprom_address, switch_mode);
+    delay(100);
 
     if (debuging == true) {
       Serial.print(F("Switch Mode:"));
@@ -735,18 +743,20 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
     if (switch_mode == 0) { //Manual Mode > Switch on & Auto Mode off
 
       write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
+      delay(100);
       write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
-      load_config();
+      delay(100);
       if (debuging == true) Serial.println(F("Auto Modus off"));
-      set_gpio_pins(1, true);//Switch Relais on
+      set_gpio_pins(1, true); //Switch Relais on
       set_gpio_pins(2, false);//Auto Modus off > LED
     }
 
     if (switch_mode == 1) {//Manual Mode > Switch off & Auto Mode off
 
       write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
+      delay(100);
       write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
-      load_config();
+      delay(100);
       if (debuging == true) Serial.println(F("Auto Modus off"));
       set_gpio_pins(1, false);//Switch Relais off
       set_gpio_pins(2, false);//Auto Modus off > LED
@@ -755,11 +765,13 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
     if (switch_mode == 2) {//Auto Mode on
 
       write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, true);
+      delay(100);
       write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
-      load_config();
+      delay(100);
       if (debuging == true) Serial.println(F("Auto Modus on"));
       set_gpio_pins(2, true);//Auto Modus on > LED
     }
+    load_config();
   }
 }
 //-----------------------------------------------------------------
