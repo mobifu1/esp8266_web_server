@@ -75,9 +75,6 @@ int auto_switch_on_minute;
 //Output variables to GPIO pins, depending on used hardware
 const int output1 = 0;    //GPIO 0  Board:ESP8266-01
 const int output2 = 2;    //GPIO 2  Board:ESP8266-01 > Pin also used for UART Flash-Mode
-//const int input1 = 2;   //GPIO 2  Board:Sonoff S20 > Button > pressed = LOW-Level (Pin also used for UART Flash-Mode)
-//const int output1 = 12; //GPIO 12 Board:Sonoff S20 > Relais
-//const int output2 = 13; //GPIO 13 Board:Sonoff S20 > LED
 
 //EEprom statements
 const int eeprom_size = 256 ; //Size can be anywhere between 4 and 4096 bytes
@@ -762,26 +759,6 @@ boolean read_eeprom_bool(int address) {
   if (value != 1)bool_value = false;
   return bool_value;
   EEPROM.end();
-}
-//-----------------------------------------------------------------
-void read_input_pin() { // needed for sonoff S20 > Switch Button
-
-  //  int val = digitalRead(input1);
-  //
-  //  if (auto_switch_by_sun_down == false && auto_switch_by_sun_up == false) {
-  //    if (val == LOW) {
-  //      if (input1_state == true) {
-  //        input1_state = false;
-  //        set_gpio_pins(1, false);
-  //        delay(500);
-  //      }
-  //      else {
-  //        input1_state = true;
-  //        set_gpio_pins(1, true);
-  //        delay(500);
-  //      }
-  //    }
-  //  }
 }
 //-----------------------------------------------------------------
 void set_gpio_pins(int gpio, boolean state) {
