@@ -132,7 +132,7 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("(v1.6.1-r)")
+#define versionsname F("(v1.6.2-beta)")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
 #define lock_info F("<p>Locked by Auto Modus</p>")
@@ -144,6 +144,10 @@ void setup() {
 
   Serial.begin(115200);
   Serial.setDebugOutput(false);
+
+  //Initialize the output variables as outputs
+  pinMode(output1, OUTPUT);
+  pinMode(output2, OUTPUT);
 
   //Load config
   load_config();
@@ -827,8 +831,9 @@ void set_gpio_pins(int gpio, boolean state) {
 void load_config() {
 
   Serial.println();
-  Serial.println(versionsname);
   Serial.println(F("config load:"));
+
+  Serial.println(versionsname);
 
   debuging = read_eeprom_bool(debuging_eeprom_address);
   Serial.println("debuging=" + String(debuging));
