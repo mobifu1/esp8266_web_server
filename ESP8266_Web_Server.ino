@@ -1,8 +1,8 @@
 /*
-  Web-Server to switch 1 relais by sunset / sunrise or manual by Sonoff S20 hardware button
+  Web-Server to switch 1 relais by sunset and sunrise or manual by Sonoff S20 hardware button
 
   Arduino IDE:
-  Generic ESP8266 Modul
+  Board: Generic ESP8266 Modul
   Flash Mode: DOUT
 
   How it works:
@@ -14,7 +14,7 @@
   passwort=xxxxx
   servername=website name           show on the website
   debuging=false/true               serial debuging informations
-  invert_gpio=false/true            invert the output signal for each relay-boards
+  invert_gpio=false/true            invert the output signal for the relay
   config -get                       show all stored variable on serial port
   img_src=default                   https://www.timeanddate.com/scripts/sunmap.php
   ip -get                           local IP
@@ -132,7 +132,7 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("(v1.6.2-beta")
+#define versionsname F("(v1.6.2-r")
 #define hardwarename F("/ Sonoff S20)")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
@@ -144,6 +144,11 @@ void setup() {
 
   Serial.begin(115200);
   Serial.setDebugOutput(false);
+
+  //Initialize the output variables as outputs
+  pinMode(input1, INPUT);
+  pinMode(output1, OUTPUT);
+  pinMode(output2, OUTPUT);
 
   //Load config
   load_config();
@@ -733,7 +738,7 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
     switch_mode++;
     if (switch_mode > 2)switch_mode = 0;
     write_eeprom_int(switch_mode_eeprom_address, switch_mode);
-    delay(100);
+    delay(10);
 
     if (debuging == true) {
       Serial.print(F("Switch Mode:"));
@@ -743,9 +748,9 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
     if (switch_mode == 0) { //Manual Mode > Switch on & Auto Mode off
 
       write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
-      delay(100);
+      delay(10);
       write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
-      delay(100);
+      delay(10);
       if (debuging == true) Serial.println(F("Auto Modus off"));
       set_gpio_pins(1, true); //Switch Relais on
       set_gpio_pins(2, false);//Auto Modus off > LED
@@ -754,9 +759,9 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
     if (switch_mode == 1) {//Manual Mode > Switch off & Auto Mode off
 
       write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
-      delay(100);
+      delay(10);
       write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
-      delay(100);
+      delay(10);
       if (debuging == true) Serial.println(F("Auto Modus off"));
       set_gpio_pins(1, false);//Switch Relais off
       set_gpio_pins(2, false);//Auto Modus off > LED
@@ -765,9 +770,9 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
     if (switch_mode == 2) {//Auto Mode on
 
       write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, true);
-      delay(100);
+      delay(10);
       write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
-      delay(100);
+      delay(10);
       if (debuging == true) Serial.println(F("Auto Modus on"));
       set_gpio_pins(2, true);//Auto Modus on > LED
     }
@@ -807,26 +812,16 @@ void set_gpio_pins(int gpio, boolean state) {
   if (gpio == 2 && state == false) { //LED on Board
     if (output2_state == true) {
       output2_state = state;
-      if (debuging == true) Serial.println(F("Switch LED off"));
-      if (invert_gpio == false) {
-        digitalWrite(output2, LOW);
-      }
-      if (invert_gpio == true) {
-        digitalWrite(output2, HIGH);
-      }
+      if (debuging == true) Serial.println(F("Switch Auto Mode LED off"));
+      digitalWrite(output2, HIGH);
     }
   }
 
   if (gpio == 2 && state == true) {
     if (output2_state == false) {
       output2_state = state;
-      if (debuging == true) Serial.println(F("Switch LED on"));
-      if (invert_gpio == false) {
-        digitalWrite(output2, HIGH);
-      }
-      if (invert_gpio == true) {
-        digitalWrite(output2, LOW);
-      }
+      if (debuging == true) Serial.println(F("Switch Auto Mode LED on"));
+      digitalWrite(output2, LOW);
     }
   }
 }
@@ -834,11 +829,11 @@ void set_gpio_pins(int gpio, boolean state) {
 void load_config() {
 
   Serial.println();
-  //Serial.println(versionsname + " " + hardwarename);
+  Serial.println(F("config load:"));
+
   Serial.print(versionsname);
   Serial.print(F(" "));
   Serial.println(hardwarename);
-  Serial.println(F("config load:"));
 
   debuging = read_eeprom_bool(debuging_eeprom_address);
   Serial.println("debuging=" + String(debuging));
