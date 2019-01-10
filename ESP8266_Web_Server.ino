@@ -353,7 +353,6 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
     if (auto_power_on == true) {
       if (ntp_is_allready_set == true) {
         set_gpio_pins(1, true);
-        set_gpio_pins(2, true);
       }
       else {
         if (debuging == true) Serial.println(F("Auto Switch on is locked while NTP is in update process"));
@@ -363,7 +362,6 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
     else {
       if (ntp_is_allready_set == true) {
         set_gpio_pins(1, false);
-        set_gpio_pins(2, false);
       }
       else {
         if (debuging == true) Serial.println(F("Auto Switch off is locked while NTP is in update process"));
@@ -774,6 +772,7 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
       write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
       delay(10);
       if (debuging == true) Serial.println(F("Auto Modus on"));
+      //set_gpio_pin 1 is controlled by software
       set_gpio_pins(2, true);//Auto Modus on > LED
     }
     load_config();
