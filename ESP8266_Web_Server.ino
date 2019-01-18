@@ -14,7 +14,6 @@
   passwort=xxxxx
   servername=website name           show on the website
   debuging=false/true               serial debuging informations
-  invert_gpio=false/true            invert the output signal for the relay
   config -get                       show all stored variable on serial port
   img_src=default                   https://www.timeanddate.com/scripts/sunmap.php
   ip -get                           local IP
@@ -55,16 +54,14 @@ String header;
 boolean output1_state;
 boolean output2_state;
 boolean input1_state;
-boolean invert_gpio;
 
 //Web site activation
-boolean auto_switch_by_sun_down = false;
+boolean auto_switch_by_sun;
 float auto_switch_off_hour_min = 16; //16:00 Uhr local time
 float auto_switch_off_hour_max = 24; //23:59 Uhr local time
 int auto_switch_off_hour;
 int auto_switch_off_minute;
 
-boolean auto_switch_by_sun_up = false;
 float auto_switch_on_hour_min = 0;  //00:00 Uhr local time
 float auto_switch_on_hour_max = 9;  //09:00 Uhr local time
 int auto_switch_on_hour;
@@ -80,10 +77,8 @@ const int output2 = 13; //GPIO 13 Board:Sonoff S20 > LED
 //EEprom statements
 const int eeprom_size = 256 ; //Size can be anywhere between 4 and 4096 bytes
 
-int auto_switch_by_sun_down_eeprom_address = 0;//boolean value
-int auto_switch_by_sun_up_eeprom_address = 1;  //boolean value
+int auto_switch_by_sun_eeprom_address = 0;//boolean value
 int debuging_eeprom_address = 2;               //boolean value
-int invert_gpio_eeprom_address = 5;            //boolean value
 int auto_switch_off_hour_eeprom_address = 6;   //int value
 int auto_switch_off_minute_eeprom_address = 8; //int value
 int auto_switch_on_hour_eeprom_address = 10;   //int value
@@ -98,10 +93,11 @@ String serial_line_0;//read bytes from serial port 0
 //-----------------------------------------------------------------
 
 Ticker ticker1;
-int32_t tick;
+int32_t tick = 1; //Init the NTP update countdown ticker > start NTP-update in 1 seconds after software start
 
 bool readyForNtpUpdate = false;// flag changed in the ticker function to start NTP Update
 bool ntp_is_allready_set = false;
+int ntp_counter_sec = 0;
 simpleDSTadjust dstAdjusted(StartRule, EndRule);// Setup simpleDSTadjust Library rules
 
 float lat = 53.48;//my home location
@@ -132,8 +128,8 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("(v1.6.2-r")
-#define hardwarename F("/ Sonoff S20)")
+#define versionsname F("v1.7.0-r")
+#define hardwarename F("Sonoff S20")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
 
@@ -150,8 +146,16 @@ void setup() {
   pinMode(output1, OUTPUT);
   pinMode(output2, OUTPUT);
 
-  //Load config
   load_config();
+
+  for (int i = 0; i < 3; i++) { //sync the output pins
+    if (debuging == true) {
+      Serial.print(F("Sync Sequ: "));
+      Serial.println(String(i));
+    }
+    change_switch_mode();
+    delay(1000);
+  }
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -166,7 +170,6 @@ void setup() {
   updateNTP();  //Init the NTP time
   printTime(0); //print initial time now.
 
-  tick = NTP_UPDATE_INTERVAL_SEC; //Init the NTP update countdown ticker
   ticker1.attach(1, secTicker);   //Run a 1 second interval Ticker
   if (debuging == true) Serial.print(F("Next NTP Update: "));
   printTime(tick);
@@ -200,30 +203,36 @@ void loop() {
 void secTicker() {//NTP timer update ticker
 
   tick--;
-  if (tick <= 0) {
 
+  if (tick <= 0) {
     readyForNtpUpdate = true;
+    ntp_is_allready_set = false;
     tick = NTP_UPDATE_INTERVAL_SEC; // Re-arm
   }
 
-  printTime(0);  //Uncomment if you want to see time printed every second
+  if (ntp_is_allready_set == false) {
+    ntp_counter_sec ++;
+    if (debuging == true) {
+      Serial.print(F("Locked sec: "));
+      Serial.println(String(ntp_counter_sec));
+    }
+    if (ntp_counter_sec >= 5) {
+      ntp_is_allready_set = true;//wait for give free the ntp is updated
+      if (debuging == true)Serial.println(F("Delocked"));
+    }
+  }
+  else {
+    ntp_counter_sec = 0;
+  }
+
+  printTime(0);
 }
 //-----------------------------------------------------------------
 void updateNTP() {
 
   if (debuging == true) Serial.print(F("Start NTP Update: "));
-  ntp_is_allready_set = false;
 
   configTime(timezone * 3600, 0, NTP_SERVERS);
-
-  delay(1000);
-
-  while (!time(nullptr)) {
-    if (debuging == true) Serial.print(F("#"));
-    delay(1000);
-  }
-
-  ntp_is_allready_set = true;
 }
 //-----------------------------------------------------------------
 void printTime(time_t offset) {
@@ -320,31 +329,27 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
   //Calculation daylight
   float time_now = float(hour_) + (float(minute_) / 60);
 
-  if (auto_switch_by_sun_down == true || auto_switch_by_sun_up == true) {
+  if (auto_switch_by_sun == true) {
 
     boolean auto_power_on = false;
     float time_off = float(auto_switch_off_hour) + (float(auto_switch_off_minute) / 60);
     float time_on = float(auto_switch_on_hour) + (float(auto_switch_on_minute) / 60);
 
-    if (auto_switch_by_sun_down == true) {
-      if (time_off >= auto_switch_off_hour_min && time_now <= auto_switch_off_hour_max) {// 16 & 23
-        if (time_now >= sunset) {
-          if (time_now < time_off) {
-            if (debuging == true) Serial.println(F("Auto Switch On Event: Sun down"));
-            auto_power_on = true;
-          }
+    if (time_off >= auto_switch_off_hour_min && time_now <= auto_switch_off_hour_max) {// 16 & 23
+      if (time_now >= sunset) {
+        if (time_now < time_off) {
+          if (debuging == true) Serial.println(F("Auto Switch On Event: Sun down"));
+          auto_power_on = true;
         }
       }
     }
 
-    if (auto_switch_by_sun_up == true) {
-      if (time_on >= auto_switch_on_hour_min && time_now <= auto_switch_on_hour_max) {// 5 & 9
-        if (time_now < sunrise) {
-          if (time_now >= time_on) {
-            if (weekend == false) {
-              if (debuging == true) Serial.println(F("Auto Switch On Event: Sun up"));
-              auto_power_on = true;
-            }
+    if (time_on >= auto_switch_on_hour_min && time_now <= auto_switch_on_hour_max) {// 5 & 9
+      if (time_now < sunrise) {
+        if (time_now >= time_on) {
+          if (weekend == false) {
+            if (debuging == true) Serial.println(F("Auto Switch On Event: Sun up"));
+            auto_power_on = true;
           }
         }
       }
@@ -357,7 +362,6 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
       else {
         if (debuging == true) Serial.println(F("Auto Switch on is locked while NTP is in update process"));
       }
-
     }
     else {
       if (ntp_is_allready_set == true) {
@@ -417,15 +421,9 @@ void website() {
             client.println();
 
             //Handle the incoming information from the website user
-            if (header.indexOf(F("GET /3/off")) >= 0) {//button3
-              write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
-              load_config();
-              if (debuging == true) Serial.println(F("Auto Modus 1 off"));
-
-            } else if (header.indexOf(F("GET /3/on")) >= 0) {//button3
-              write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, true);
-              load_config();
-              if (debuging == true) Serial.println(F("Auto Modus 1 on"));
+            if (header.indexOf(F("GET /1/event")) >= 0) {//button 1
+              if (debuging == true) Serial.println(F("Software Button pressed:"));
+              change_switch_mode();
 
             } else if (header.indexOf(F("Switch_off_Time=")) >= 0) {  //GET /%20action_page.php?Switch+on+Time=21%3A11 HTTP/1.1
               int index = header.indexOf(F("="));
@@ -439,16 +437,6 @@ void website() {
                 load_config();
                 if (debuging == true) Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour) + ":" + String(auto_switch_off_minute));
               }
-
-            } else if (header.indexOf(F("GET /4/off")) >= 0) {//button4
-              write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
-              load_config();
-              if (debuging == true) Serial.println(F("Auto Modus 2 off"));
-
-            } else if (header.indexOf(F("GET /4/on")) >= 0) {//button4
-              write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
-              load_config();
-              if (debuging == true) Serial.println(F("Auto Modus 2 on"));
 
             } else if (header.indexOf(F("Switch_on_Time=")) >= 0) {  //GET /%20action_page.php?Switch+on+Time=05:30 HTTP/1.1
               int index = header.indexOf(F("="));
@@ -478,7 +466,20 @@ void website() {
             client.println(F("<meta http-equiv=\"refresh\" content=\"30\">\r\n"));
 
             //Web Page Heading
-            client.println("<body><h1>" + web_server_name + " " + versionsname + " " +  hardwarename + "</h1>");
+            client.println("<body><h1>" + web_server_name + "</h1>");
+
+            //button1
+            client.println(html_border);
+            client.println(F("<p><a href=\"/1/event\"><button class=\"button\">Mode</button></a></p>"));
+
+            client.print(F("<p>Switch Mode:"));
+            if (switch_mode == 0)client.println(F(" Manual On</p>"));
+            if (switch_mode == 1)client.println(F(" Manual Off</p>"));
+            if (switch_mode == 2)client.println(F(" Auto Modus On</p>"));
+
+            if (weekend == true) {
+              client.println("<p>Weekend Quiet Modus On</p>");
+            }
 
             //time and sunset , sunrise informations
             client.println(html_border);
@@ -492,15 +493,9 @@ void website() {
             client.print(img_src);
             client.println(F("\" alt=\"(img-url not reachable)\" width=\"571\" height=\"300\">"));
 
-            //auto switch on button (by sun set)
+            //auto switch on by sun set
             client.println(html_border);
             client.println("<p>Auto switch on at Sunset / Auto switch off at: " + auto_switch_off_string + "</p>");
-
-            if (auto_switch_by_sun_down == false) { //button for auto_switch_by_sun
-              client.println(F("<p><a href=\"/3/on\"><button class=\"button\">OFF</button></a></p>"));
-            } else {
-              client.println(F("<p><a href=\"/3/off\"><button class=\"button button2\">ON</button></a></p>"));
-            }
 
             //inputform to define the auto switch off time
             client.println(F("<form action=\"/action_page.php\">"));
@@ -509,19 +504,10 @@ void website() {
             client.println(F("<input type=\"submit\">"));
             client.println(F("</form>"));
 
-            //auto switch off button (by sun rise)
+            //auto switch off by sun rise
             client.println(html_border);
             client.println("<p>Auto switch on at: "  + auto_switch_on_string + " / Auto switch off at Sunrise" + "</p>");
 
-            //auto switch on button (by sun rise)
-            if (auto_switch_by_sun_up == false) { //button for auto_switch_by_sun
-              client.println(F("<p><a href=\"/4/on\"><button class=\"button\">OFF</button></a></p>"));
-            } else {
-              client.println(F("<p><a href=\"/4/off\"><button class=\"button button2\">ON</button></a></p>"));
-            }
-            if (weekend == true) {
-              client.println("<p>Weekend Quiet Modus On</p>");
-            }
             //inputform to define the auto switch on time
             client.println(F("<form action=\"/action_page.php\">"));
             client.println(F("Time on (between 00:00 and 09:00):"));
@@ -530,11 +516,6 @@ void website() {
             client.println(F("</form>"));
 
             client.println(html_border);
-
-            client.print(F("<p>Switch Mode:"));
-            if (switch_mode == 0)client.println(F(" Manual On</p>"));
-            if (switch_mode == 1)client.println(F(" Manual Off</p>"));
-            if (switch_mode == 2)client.println(F(" Auto Modus On</p>"));
 
             if (ntp_is_allready_set == true) client.print(F("<p>NTP OK / "));
             if (ntp_is_allready_set == false) client.print(F("<p>NTP ? / "));
@@ -548,6 +529,14 @@ void website() {
               client.print(String(tick));
               client.println(F(" Seconds</p>"));
             }
+
+            client.println(F("<p>HW: "));
+            client.println(hardwarename);
+            client.println(F(" / SW: "));
+            client.println(versionsname);
+            client.println(F("</p>"));
+
+            if (debuging == true) client.println(F("Serial Debuging on"));
 
             client.println(F("</body></html>"));
 
@@ -732,51 +721,49 @@ void read_input_pin() { // needed for sonoff S20 > Switch Button
     }
 
     if (debuging == true) Serial.println(F("Hardware Button pressed:"));
-
-    switch_mode++;
-    if (switch_mode > 2)switch_mode = 0;
-    write_eeprom_int(switch_mode_eeprom_address, switch_mode);
-    delay(10);
-
-    if (debuging == true) {
-      Serial.print(F("Switch Mode:"));
-      Serial.println(String(switch_mode));
-    }
-
-    if (switch_mode == 0) { //Manual Mode > Switch on & Auto Mode off
-
-      write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
-      delay(10);
-      write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
-      delay(10);
-      if (debuging == true) Serial.println(F("Auto Modus off"));
-      set_gpio_pins(1, true); //Switch Relais on
-      set_gpio_pins(2, false);//Auto Modus off > LED
-    }
-
-    if (switch_mode == 1) {//Manual Mode > Switch off & Auto Mode off
-
-      write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, false);
-      delay(10);
-      write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, false);
-      delay(10);
-      if (debuging == true) Serial.println(F("Auto Modus off"));
-      set_gpio_pins(1, false);//Switch Relais off
-      set_gpio_pins(2, false);//Auto Modus off > LED
-    }
-
-    if (switch_mode == 2) {//Auto Mode on
-
-      write_eeprom_bool(auto_switch_by_sun_down_eeprom_address, true);
-      delay(10);
-      write_eeprom_bool(auto_switch_by_sun_up_eeprom_address, true);
-      delay(10);
-      if (debuging == true) Serial.println(F("Auto Modus on"));
-      //set_gpio_pin 1 is controlled by software
-      set_gpio_pins(2, true);//Auto Modus on > LED
-    }
-    load_config();
+    change_switch_mode();
   }
+}
+//-----------------------------------------------------------------
+void change_switch_mode() {
+
+  switch_mode++;
+  if (switch_mode > 2)switch_mode = 0;
+  write_eeprom_int(switch_mode_eeprom_address, switch_mode);
+  delay(10);
+
+  if (debuging == true) {
+    Serial.print(F("Switch Mode:"));
+    Serial.println(String(switch_mode));
+  }
+
+  if (switch_mode == 0) { //Manual Mode > Switch on & Auto Mode off
+
+    write_eeprom_bool(auto_switch_by_sun_eeprom_address, false);
+    delay(10);
+    if (debuging == true) Serial.println(F("Auto Modus off"));
+    set_gpio_pins(1, true); //Switch Relais on
+    set_gpio_pins(2, false);//Auto Modus off > LED
+  }
+
+  if (switch_mode == 1) {//Manual Mode > Switch off & Auto Mode off
+
+    write_eeprom_bool(auto_switch_by_sun_eeprom_address, false);
+    delay(10);
+    if (debuging == true) Serial.println(F("Auto Modus off"));
+    set_gpio_pins(1, false);//Switch Relais off
+    set_gpio_pins(2, false);//Auto Modus off > LED
+  }
+
+  if (switch_mode == 2) {//Auto Mode on
+
+    write_eeprom_bool(auto_switch_by_sun_eeprom_address, true);
+    delay(10);
+    if (debuging == true) Serial.println(F("Auto Modus on"));
+    //set_gpio_pins 1 is controlled by software
+    set_gpio_pins(2, true);//Auto Modus on > LED
+  }
+  load_config();
 }
 //-----------------------------------------------------------------
 void set_gpio_pins(int gpio, boolean state) {
@@ -786,12 +773,7 @@ void set_gpio_pins(int gpio, boolean state) {
     if (output1_state == true) {
       output1_state = state;
       if (debuging == true) Serial.println(F("Switch Relais off"));
-      if (invert_gpio == false) {
-        digitalWrite(output1, LOW);
-      }
-      if (invert_gpio == true) {
-        digitalWrite(output1, HIGH);
-      }
+      digitalWrite(output1, LOW);
     }
   }
 
@@ -799,12 +781,7 @@ void set_gpio_pins(int gpio, boolean state) {
     if (output1_state == false) {
       output1_state = state;
       if (debuging == true) Serial.println(F("Switch Relais on"));
-      if (invert_gpio == false) {
-        digitalWrite(output1, HIGH);
-      }
-      if (invert_gpio == true) {
-        digitalWrite(output1, LOW);
-      }
+      digitalWrite(output1, HIGH);
     }
   }
 
@@ -853,15 +830,11 @@ void load_config() {
   }
   Serial.println("servername=" + web_server_name);
 
-  invert_gpio = read_eeprom_bool(invert_gpio_eeprom_address);
-  Serial.println("invert_gpio=" + String(invert_gpio));
-
   img_src = read_eeprom_string(img_src_eeprom_address);
   if (img_src == "default")img_src = img_src_default;
   Serial.println("img_src=" + String(img_src));
 
-  auto_switch_by_sun_down = read_eeprom_bool(auto_switch_by_sun_down_eeprom_address);
-  auto_switch_by_sun_up = read_eeprom_bool(auto_switch_by_sun_up_eeprom_address);
+  auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
 
   auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
   auto_switch_off_minute = read_eeprom_int(auto_switch_off_minute_eeprom_address);
@@ -899,6 +872,8 @@ void load_config() {
 
   //Switch Mode
   switch_mode = read_eeprom_int(switch_mode_eeprom_address);
+
+  Serial.println();
 }
 //-----------------------------------------------------------------
 void lookup_commands() {
@@ -933,19 +908,6 @@ void lookup_commands() {
     if (serial_line_0.substring(9, length_) == "true") {
       write_eeprom_bool(debuging_eeprom_address, true);
       Serial.println(serial_line_0.substring(0, 9) + serial_line_0.substring(9, length_));
-      load_config();
-    }
-  }
-
-  if (serial_line_0.substring(0, 12) == F("invert_gpio=")) {
-    if (serial_line_0.substring(12, length_) == "false") {
-      write_eeprom_bool(invert_gpio_eeprom_address, false);
-      Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
-      load_config();
-    }
-    if (serial_line_0.substring(12, length_) == "true") {
-      write_eeprom_bool(invert_gpio_eeprom_address, true);
-      Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
       load_config();
     }
   }
