@@ -53,7 +53,7 @@ String header;
 // Auxiliar variables to store the current output state
 boolean output1_state;
 boolean output2_state;
-boolean input1_state;
+
 boolean invert_gpio;
 
 //Buttons web site activation
@@ -176,7 +176,6 @@ void setup() {
 void loop() {
 
   read_serial_port_0();
-  read_input_pin();
   website();
 
   if (readyForNtpUpdate) {
