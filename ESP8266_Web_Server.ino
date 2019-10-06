@@ -14,6 +14,7 @@
   passwort=xxxxx
   servername=website name           show on the website
   debuging=false/true               serial debuging informations
+  led_disturb=false/true            let the green auto mode LED short blinking, the LED is to bright in the night
   config -get                       show all stored variable on serial port
   img_src=default                   https://www.timeanddate.com/scripts/sunmap.php
   ip -get                           local IP
@@ -68,6 +69,7 @@ int auto_switch_on_hour;
 int auto_switch_on_minute;
 
 int switch_mode;
+boolean led_disturb;
 
 //Output variables to GPIO pins, depending on used hardware
 const int input1 = 0;   //GPIO 0  Board:Sonoff S20 > Button > pressed = LOW-Level (Pin also used for UART Flash-Mode)
@@ -79,6 +81,7 @@ const int eeprom_size = 256 ; //Size can be anywhere between 4 and 4096 bytes
 
 int auto_switch_by_sun_eeprom_address = 0;//boolean value
 int debuging_eeprom_address = 2;               //boolean value
+int led_disturb_eeprom_address = 3;            //boolean value
 int auto_switch_off_hour_eeprom_address = 6;   //int value
 int auto_switch_off_minute_eeprom_address = 8; //int value
 int auto_switch_on_hour_eeprom_address = 10;   //int value
@@ -128,7 +131,7 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("v1.7.0-r")
+#define versionsname F("v1.7.1-r")
 #define hardwarename F("Sonoff S20")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
@@ -223,6 +226,12 @@ void secTicker() {//NTP timer update ticker
   }
   else {
     ntp_counter_sec = 0;
+  }
+
+  if (switch_mode == 2 && led_disturb == true) {
+    set_gpio_pins(2, true); //Auto Modus on > LED blink
+    delay(10);
+    set_gpio_pins(2, false); //Auto Modus on > LED blink
   }
 
   printTime(0);
@@ -761,7 +770,8 @@ void change_switch_mode() {
     delay(10);
     if (debuging == true) Serial.println(F("Auto Modus on"));
     //set_gpio_pins 1 is controlled by software
-    set_gpio_pins(2, true);//Auto Modus on > LED
+    if (led_disturb == false)set_gpio_pins(2, true); //Auto Modus on > LED
+    if (led_disturb == true)set_gpio_pins(2, false); //Auto Modus on > LED
   }
   load_config();
 }
@@ -813,6 +823,9 @@ void load_config() {
 
   debuging = read_eeprom_bool(debuging_eeprom_address);
   Serial.println("debuging=" + String(debuging));
+
+  led_disturb = read_eeprom_bool(led_disturb_eeprom_address);
+  Serial.println("led_disturb=" + String(led_disturb));
 
   String value = "";
   value = read_eeprom_string(ssid_eeprom_address);
@@ -908,6 +921,19 @@ void lookup_commands() {
     if (serial_line_0.substring(9, length_) == "true") {
       write_eeprom_bool(debuging_eeprom_address, true);
       Serial.println(serial_line_0.substring(0, 9) + serial_line_0.substring(9, length_));
+      load_config();
+    }
+  }
+
+  if (serial_line_0.substring(0, 12) == F("led_disturb=")) {
+    if (serial_line_0.substring(12, length_) == "false") {
+      write_eeprom_bool(led_disturb_eeprom_address, false);
+      Serial.println(serial_line_0.substring(0, 12) + serial_line_0.substring(12, length_));
+      load_config();
+    }
+    if (serial_line_0.substring(12, length_) == "true") {
+      write_eeprom_bool(led_disturb_eeprom_address, true);
+      Serial.println(serial_line_0.substring(0, 12) + serial_line_0.substring(12, length_));
       load_config();
     }
   }
