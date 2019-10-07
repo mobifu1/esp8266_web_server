@@ -18,6 +18,8 @@
   config -get                       show all stored variable on serial port
   img_src=default                   https://www.timeanddate.com/scripts/sunmap.php
   ip -get                           local IP
+  gps_lon=53.12                     max. 2 decimals
+  gps_lat=10.47                     max. 2 decimals
 
   after setting changes (ssid or password), you have to restart the device.
 */
@@ -91,6 +93,8 @@ int ssid_eeprom_address = 16;                  //string max 22
 int password_eeprom_address = 40;              //string max 32
 int web_server_name_eeprom_address = 80;       //string max 32
 int img_src_eeprom_address = 120;              //string max 96
+int gps_lat_eeprom_address = 220;               //string max 6
+int gps_lon_eeprom_address = 230;               //string max 6
 
 String serial_line_0;//read bytes from serial port 0
 //-----------------------------------------------------------------
@@ -103,8 +107,10 @@ bool ntp_is_allready_set = false;
 int ntp_counter_sec = 0;
 simpleDSTadjust dstAdjusted(StartRule, EndRule);// Setup simpleDSTadjust Library rules
 
-float lat = 53.48;//my home location
-float lon = 10.23;//needed for exact local sunrise / sunset
+String gps_lat = "0";  //53.48 my home location
+String gps_lon = "0";  //10.23 needed for exact local sunrise / sunset
+float lat = 0;
+float lon = 0;
 
 int year_ ;
 int month_ ;
@@ -131,7 +137,7 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("v1.7.1-r")
+#define versionsname F("v1.7.2-r")
 #define hardwarename F("Sonoff S20")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
@@ -310,6 +316,9 @@ void time_split_parameter (String line) { //11/23/2018 03:57:30pm CET
 //-----------------------------------------------------------------
 void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
 
+  if (latitude < -90 || latitude > 90 ) latitude = 0;
+  if (longitude < -180 || longitude > 180)longitude = 0;
+
   sundata sun = sundata(latitude, longitude, time_diff_to_greenwich); //creat object with latitude and longtitude declared in degrees and time difference from Greenwhich
 
   sun.time( year_, month_, day_, hour_, minute_, second_); //insert year, month, day, hour, minutes and seconds
@@ -475,7 +484,7 @@ void website() {
             client.println(F("<meta http-equiv=\"refresh\" content=\"30\">\r\n"));
 
             //Web Page Heading
-            client.println("<body><h1>" + web_server_name + "</h1>");
+            client.println("<body><h1>" + web_server_name + " " + versionsname + " GPS:" + gps_lat + "," + gps_lon + "</h1>");
 
             //button1
             client.println(html_border);
@@ -847,6 +856,14 @@ void load_config() {
   if (img_src == "default")img_src = img_src_default;
   Serial.println("img_src=" + String(img_src));
 
+  gps_lat = read_eeprom_string(gps_lat_eeprom_address);
+  lat = gps_lat.toFloat();  // convert to float
+  Serial.println("gps_lat=" + String(lat));
+
+  gps_lon = read_eeprom_string(gps_lon_eeprom_address);
+  lon = gps_lon.toFloat();  // convert to float
+  Serial.println("gps_lon=" + String(lon));
+
   auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
 
   auto_switch_off_hour = read_eeprom_int(auto_switch_off_hour_eeprom_address);
@@ -950,6 +967,18 @@ void lookup_commands() {
   }
 
   if (serial_line_0.substring(0, 11) == F("config -get")) {
+    load_config();
+  }
+
+  if (serial_line_0.substring(0, 8) == F("gps_lat=")) {
+    write_eeprom_string(gps_lat_eeprom_address, serial_line_0.substring(8, length_));
+    Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
+    load_config();
+  }
+
+  if (serial_line_0.substring(0, 8) == F("gps_lon=")) {
+    write_eeprom_string(gps_lon_eeprom_address, serial_line_0.substring(8, length_));
+    Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
     load_config();
   }
 }
