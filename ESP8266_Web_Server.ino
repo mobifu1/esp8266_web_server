@@ -137,7 +137,7 @@ boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("(v1.7.2-beta)")
+#define versionsname F("(v1.7.2-r)")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
 #define lock_info F("<p>Locked by Auto Modus</p>")
@@ -506,7 +506,7 @@ void website() {
             client.println(F("<meta http-equiv=\"refresh\" content=\"30\">\r\n"));
 
             //Web Page Heading
-            client.println("<body><h1>" + web_server_name + " " + versionsname + " Location:" + gps_lat + "," + gps_lon + "</h1>");
+            client.println("<body><h1>" + web_server_name + " " + versionsname + " Location: " + gps_lat + " / " + gps_lon + "</h1>");
 
 
             //button 1
