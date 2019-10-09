@@ -92,7 +92,7 @@ int switch_mode_eeprom_address = 14;           //int value
 int ssid_eeprom_address = 16;                  //string max 22
 int password_eeprom_address = 40;              //string max 32
 int web_server_name_eeprom_address = 80;       //string max 32
-int img_src_eeprom_address = 120;              //string max 96
+int img_src_eeprom_address = 120;              //string max 32
 int gps_lat_eeprom_address = 220;               //string max 6
 int gps_lon_eeprom_address = 230;               //string max 6
 
