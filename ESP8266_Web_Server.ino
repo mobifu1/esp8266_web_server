@@ -1,5 +1,5 @@
 /*
-  Web-Server to switch 1 relais by sunset and sunrise or manual by Sonoff S20 hardware button
+  Web-Server to switch 1 relais by sunset and sunrise or manual by Sonoff Basic hardware button
 
   Arduino IDE:
   Board: Generic ESP8266 Modul
@@ -74,9 +74,9 @@ int switch_mode;
 boolean led_disturb;
 
 //Output variables to GPIO pins, depending on used hardware
-const int input1 = 0;   //GPIO 0  Board:Sonoff S20 > Button > pressed = LOW-Level (Pin also used for UART Flash-Mode)
-const int output1 = 12; //GPIO 12 Board:Sonoff S20 > Relais
-const int output2 = 13; //GPIO 13 Board:Sonoff S20 > LED
+const int input1 = 0;   //GPIO 0  Board:Sonoff Basic > Button > pressed = LOW-Level (Pin also used for UART Flash-Mode)
+const int output1 = 12; //GPIO 12 Board:Sonoff Basic > Relais
+const int output2 = 14; //GPIO 14 Board:Sonoff Basic > on Board Pin
 
 //EEprom statements
 const int eeprom_size = 256 ; //Size can be anywhere between 4 and 4096 bytes
@@ -138,7 +138,7 @@ const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday"
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
 #define versionsname F("v1.7.3-r")
-#define hardwarename F("Sonoff S20")
+#define hardwarename F("Sonoff Basic")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
 
@@ -728,7 +728,7 @@ boolean read_eeprom_bool(int address) {
   EEPROM.end();
 }
 //-----------------------------------------------------------------
-void read_input_pin() { // needed for sonoff S20 > Switch Button
+void read_input_pin() { // needed for sonoff basic > Switch Button
 
   int val = digitalRead(input1);
 
