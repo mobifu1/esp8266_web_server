@@ -484,7 +484,7 @@ void website() {
             client.println(F("<meta http-equiv=\"refresh\" content=\"30\">\r\n"));
 
             //Web Page Heading
-            client.println("<body><h1>" + web_server_name + " " + versionsname + " Location: " + gps_lat + " / " + gps_lon + "</h1>");
+            client.println("<body><h1>" + web_server_name + " - " + " Location: " + gps_lat + " / " + gps_lon + "</h1>");
 
             //button1
             client.println(html_border);
