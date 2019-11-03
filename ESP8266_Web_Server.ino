@@ -76,7 +76,7 @@ boolean led_disturb;
 //Output variables to GPIO pins, depending on used hardware
 const int input1 = 0;   //GPIO 0  Board:Sonoff Basic > Button > pressed = LOW-Level (Pin also used for UART Flash-Mode)
 const int output1 = 12; //GPIO 12 Board:Sonoff Basic > Relais
-const int output2 = 14; //GPIO 14 Board:Sonoff Basic > on Board Pin
+const int output2 = 13; //GPIO 13 Board:Sonoff Basic > Led
 
 //EEprom statements
 const int eeprom_size = 256 ; //Size can be anywhere between 4 and 4096 bytes
