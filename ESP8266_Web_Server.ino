@@ -453,7 +453,7 @@ void website() {
             if (header.indexOf(F("GET /1/event")) >= 0) {//button 1
               if (debuging == true) Serial.println(F("Software Button pressed:"));
               change_switch_mode();
-              Serial.println("ntp-time," + String(hour_utc) + "," + String(minute_) + "," +  String(second_) + "," +  String(day_) + "," +  String(month_) + "," +  String(year_) + "," + String(is_night) + ",");
+              Serial.println("set-text,1, Mode " + String(switch_mode) + " ,");
 
             } else if (header.indexOf(F("Switch_off_Time=")) >= 0) {  //GET /%20action_page.php?Switch+on+Time=21%3A11 HTTP/1.1
               int index = header.indexOf(F("="));
@@ -994,7 +994,7 @@ void lookup_commands() {
     load_config(1);
   }
   if (serial_line_0.substring(0, 15) == F("ntp-sync: false")) { //NTP-Time,16,29,31,19,10,1996,0,
-    delay (1000);
+    //delay (1000);
     Serial.println("ntp-time," + String(hour_utc) + "," + String(minute_) + "," +  String(second_) + "," +  String(day_) + "," +  String(month_) + "," +  String(year_) + "," + String(is_night) + ",");
   }
 }
