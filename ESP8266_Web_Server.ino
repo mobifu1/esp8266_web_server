@@ -116,6 +116,7 @@ int year_ ;
 int month_ ;
 int day_ ;
 int hour_ ;
+int hour_utc ;
 int minute_ ;
 int second_ ;
 boolean weekend;
@@ -131,13 +132,14 @@ String auto_switch_on_string = "";
 String auto_switch_off_string = "";
 String sun_psition = "";
 String day_string = "";
+int is_night = 1;
 
 String web_server_name = "";
 boolean debuging = false;
 const String weekdays[7] = {"Thursday", "Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday" };
 String img_src = "";
 #define img_src_default F("https://www.timeanddate.com/scripts/sunmap.php")
-#define versionsname F("v1.7.3-r")
+#define versionsname F("v1.7.4-r")
 #define hardwarename F("Sonoff Basic")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
@@ -155,7 +157,7 @@ void setup() {
   pinMode(output1, OUTPUT);
   pinMode(output2, OUTPUT);
 
-  load_config();
+  load_config(0);
 
   for (int i = 0; i < 3; i++) { //sync the output pins
     if (debuging == true) {
@@ -168,9 +170,9 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  Serial.println(F("\nConnecting to WiFi"));
+  if (debuging == true) Serial.println(F("\nConnecting to WiFi"));
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(F("."));
+    if (debuging == true) Serial.print(F("."));
     read_serial_port_0();
     delay(1000);
   }
@@ -288,6 +290,10 @@ void time_split_parameter (String line) { //11/23/2018 03:57:30pm CET
 
   if (european_time == "CET") time_diff_to_greenwich = 1;
   if (european_time == "CEST") time_diff_to_greenwich = 2;
+
+  hour_utc = hour_ - time_diff_to_greenwich;
+  if ( hour_utc == -1 ) hour_utc = 23;
+  if ( hour_utc == -2 ) hour_utc = 22;
 
   String lead_zero_hour = ("");
   if (hour_ < 10) {
@@ -409,10 +415,15 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
 
   //Format the sun position
   sun_psition = ("Sun: Azimuth: " + String(az_deg) + " deg / Elevation: " + String(sun_el_deg) + " deg / ");
-  if (sun_el_deg >= 0)sun_psition += F("Daylight");
+  if (sun_el_deg >= 0) {
+    sun_psition += F("Daylight");
+    if (auto_switch_by_sun == true) is_night = 0;
+    if (auto_switch_by_sun == false) is_night = 1;
+  }
+  if (sun_el_deg < 0) is_night = 1;
   if (sun_el_deg >= -6 && sun_el_deg < 0 )sun_psition += F("Twilight");
   if (sun_el_deg >= -12 && sun_el_deg < -6 )sun_psition += F("Astronomical-Twilight");
-  if (sun_el_deg < -12)sun_psition += F("Night");
+  if (sun_el_deg < -12) sun_psition += F("Night");
 }
 //-----------------------------------------------------------------
 void website() {
@@ -442,6 +453,7 @@ void website() {
             if (header.indexOf(F("GET /1/event")) >= 0) {//button 1
               if (debuging == true) Serial.println(F("Software Button pressed:"));
               change_switch_mode();
+              Serial.println("ntp-time," + String(hour_utc) + "," + String(minute_) + "," +  String(second_) + "," +  String(day_) + "," +  String(month_) + "," +  String(year_) + "," + String(is_night) + ",");
 
             } else if (header.indexOf(F("Switch_off_Time=")) >= 0) {  //GET /%20action_page.php?Switch+on+Time=21%3A11 HTTP/1.1
               int index = header.indexOf(F("="));
@@ -452,7 +464,7 @@ void website() {
               if (input_time >= auto_switch_off_hour_min && input_time <= auto_switch_off_hour_max) {
                 write_eeprom_int(auto_switch_off_hour_eeprom_address, value_0);
                 write_eeprom_int(auto_switch_off_minute_eeprom_address, value_1);
-                load_config();
+                load_config(0);
                 if (debuging == true) Serial.println("Set Switch off Time to: " + String(auto_switch_off_hour) + ":" + String(auto_switch_off_minute));
               }
 
@@ -465,7 +477,7 @@ void website() {
               if (input_time >= auto_switch_on_hour_min && input_time <= auto_switch_on_hour_max) {
                 write_eeprom_int(auto_switch_on_hour_eeprom_address, value_0);
                 write_eeprom_int(auto_switch_on_minute_eeprom_address, value_1);
-                load_config();
+                load_config(0);
                 if (debuging == true) Serial.println("Set Switch on Time to: " + String(auto_switch_on_hour) + ":" + String(auto_switch_on_minute));
               }
             }
@@ -782,7 +794,7 @@ void change_switch_mode() {
     if (led_disturb == false)set_gpio_pins(2, true); //Auto Modus on > LED
     if (led_disturb == true)set_gpio_pins(2, false); //Auto Modus on > LED
   }
-  load_config();
+  load_config(0);
 }
 //-----------------------------------------------------------------
 void set_gpio_pins(int gpio, boolean state) {
@@ -821,28 +833,28 @@ void set_gpio_pins(int gpio, boolean state) {
   }
 }
 //-----------------------------------------------------------------
-void load_config() {
+void load_config(int show_value) {
 
-  Serial.println();
-  Serial.println(F("config load:"));
+  if (show_value == 1)Serial.println();
+  if (show_value == 1)Serial.println(F("config load:"));
 
-  Serial.print(versionsname);
-  Serial.print(F(" "));
-  Serial.println(hardwarename);
+  if (show_value == 1)Serial.print(versionsname);
+  if (show_value == 1)Serial.print(F(" "));
+  if (show_value == 1)Serial.println(hardwarename);
 
   debuging = read_eeprom_bool(debuging_eeprom_address);
-  Serial.println("debuging=" + String(debuging));
+  if (show_value == 1)Serial.println("debuging=" + String(debuging));
 
   led_disturb = read_eeprom_bool(led_disturb_eeprom_address);
-  Serial.println("led_disturb=" + String(led_disturb));
+  if (show_value == 1)Serial.println("led_disturb=" + String(led_disturb));
 
   String value = "";
   value = read_eeprom_string(ssid_eeprom_address);
   strcpy(ssid, value.c_str());
-  Serial.println("ssid=" + String(ssid));
+  if (show_value == 1)Serial.println("ssid=" + String(ssid));
   value = read_eeprom_string(password_eeprom_address);
   strcpy(password, value.c_str());
-  Serial.println("password=" + String(password));
+  if (show_value == 1)Serial.println("password=" + String(password));
 
   web_server_name = read_eeprom_string(web_server_name_eeprom_address);
   char searchChar = 255;
@@ -850,19 +862,19 @@ void load_config() {
     write_eeprom_string(web_server_name_eeprom_address, default_servername );//default
     web_server_name = read_eeprom_string(web_server_name_eeprom_address);
   }
-  Serial.println("servername=" + web_server_name);
+  if (show_value == 1)Serial.println("servername=" + web_server_name);
 
   img_src = read_eeprom_string(img_src_eeprom_address);
   if (img_src == "default")img_src = img_src_default;
-  Serial.println("img_src=" + String(img_src));
+  if (show_value == 1)Serial.println("img_src=" + String(img_src));
 
   gps_lat = read_eeprom_string(gps_lat_eeprom_address);
   lat = gps_lat.toFloat();  // convert to float
-  Serial.println("gps_lat=" + String(lat));
+  if (show_value == 1)Serial.println("gps_lat=" + String(lat));
 
   gps_lon = read_eeprom_string(gps_lon_eeprom_address);
   lon = gps_lon.toFloat();  // convert to float
-  Serial.println("gps_lon=" + String(lon));
+  if (show_value == 1)Serial.println("gps_lon=" + String(lon));
 
   auto_switch_by_sun = read_eeprom_bool(auto_switch_by_sun_eeprom_address);
 
@@ -903,7 +915,7 @@ void load_config() {
   //Switch Mode
   switch_mode = read_eeprom_int(switch_mode_eeprom_address);
 
-  Serial.println();
+  if (show_value == 1)Serial.println();
 }
 //-----------------------------------------------------------------
 void lookup_commands() {
@@ -914,31 +926,31 @@ void lookup_commands() {
   if (serial_line_0.substring(0, 5) == F("ssid=")) {
     write_eeprom_string(ssid_eeprom_address, serial_line_0.substring(5, length_));
     Serial.println(serial_line_0.substring(0, 5) + serial_line_0.substring(5, length_));
-    load_config();
+    load_config(1);
   }
 
   if (serial_line_0.substring(0, 9) == F("password=")) {
     write_eeprom_string(password_eeprom_address, serial_line_0.substring(9, length_));
     Serial.println(serial_line_0.substring(0, 9) + serial_line_0.substring(9, length_));
-    load_config();
+    load_config(1);
   }
 
   if (serial_line_0.substring(0, 11) == F("servername=")) {
     write_eeprom_string(web_server_name_eeprom_address, serial_line_0.substring(11, length_));
     Serial.println(serial_line_0.substring(0, 11) + serial_line_0.substring(11, length_));
-    load_config();
+    load_config(1);
   }
 
   if (serial_line_0.substring(0, 9) == F("debuging=")) {
     if (serial_line_0.substring(9, length_) == "false") {
       write_eeprom_bool(debuging_eeprom_address, false);
       Serial.println(serial_line_0.substring(0, 9) + serial_line_0.substring(9, length_));
-      load_config();
+      load_config(1);
     }
     if (serial_line_0.substring(9, length_) == "true") {
       write_eeprom_bool(debuging_eeprom_address, true);
       Serial.println(serial_line_0.substring(0, 9) + serial_line_0.substring(9, length_));
-      load_config();
+      load_config(1);
     }
   }
 
@@ -946,40 +958,44 @@ void lookup_commands() {
     if (serial_line_0.substring(12, length_) == "false") {
       write_eeprom_bool(led_disturb_eeprom_address, false);
       Serial.println(serial_line_0.substring(0, 12) + serial_line_0.substring(12, length_));
-      load_config();
+      load_config(1);
     }
     if (serial_line_0.substring(12, length_) == "true") {
       write_eeprom_bool(led_disturb_eeprom_address, true);
       Serial.println(serial_line_0.substring(0, 12) + serial_line_0.substring(12, length_));
-      load_config();
+      load_config(1);
     }
   }
 
   if (serial_line_0.substring(0, 8) == F("img_src=")) {
     write_eeprom_string(img_src_eeprom_address, serial_line_0.substring(8, length_));
     Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
-    load_config();
+    load_config(1);
   }
 
-  if (serial_line_0.substring(0, 7) == F("ip -get")) {
+  if (serial_line_0.substring(0, 6) == F("ip-get")) {
     Serial.print(F("ip="));
     Serial.println(WiFi.localIP());
   }
 
-  if (serial_line_0.substring(0, 11) == F("config -get")) {
-    load_config();
+  if (serial_line_0.substring(0, 10) == F("config-get")) {
+    load_config(1);
   }
 
   if (serial_line_0.substring(0, 8) == F("gps_lat=")) {
     write_eeprom_string(gps_lat_eeprom_address, serial_line_0.substring(8, length_));
     Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
-    load_config();
+    load_config(1);
   }
 
   if (serial_line_0.substring(0, 8) == F("gps_lon=")) {
     write_eeprom_string(gps_lon_eeprom_address, serial_line_0.substring(8, length_));
     Serial.println(serial_line_0.substring(0, 8) + serial_line_0.substring(8, length_));
-    load_config();
+    load_config(1);
+  }
+  if (serial_line_0.substring(0, 15) == F("ntp-sync: false")) { //NTP-Time,16,29,31,19,10,1996,0,
+    delay (1000);
+    Serial.println("ntp-time," + String(hour_utc) + "," + String(minute_) + "," +  String(second_) + "," +  String(day_) + "," +  String(month_) + "," +  String(year_) + "," + String(is_night) + ",");
   }
 }
 //-----------------------------------------------------------------
