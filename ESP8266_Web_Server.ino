@@ -132,7 +132,7 @@ String auto_switch_on_string = "";
 String auto_switch_off_string = "";
 String sun_psition = "";
 String day_string = "";
-int is_night = 1;
+int vfd_on = 1;             //control a VFD Tube
 
 String web_server_name = "";
 boolean debuging = false;
@@ -143,6 +143,8 @@ String img_src = "";
 #define hardwarename F("Sonoff Basic")
 #define default_servername F("ESP8266")
 #define html_border F("<p>----------------------------------------------------------------------------</p>")
+
+boolean info_is_send = false;
 
 //-----------------------------------------------------------------
 void setup() {
@@ -194,10 +196,26 @@ void loop() {
   read_input_pin();
   website();
 
+  if (second_ % 15 == 0) { //every 15, 30, 45 seconds check for wifi / ntp is available
+    if (WiFi.status() != WL_CONNECTED) {
+      if (info_is_send == false) {
+        Serial.println("set-text,1,No WiFi ,");
+        info_is_send = true;
+      }
+    }
+    if (ntp_is_allready_set == false) {
+      if (info_is_send == false) {
+        Serial.println("set-text,1,No NTP  ,");
+        info_is_send = true;
+      }
+    }
+  }
+  else {
+    info_is_send = false;
+  }
+
   if (readyForNtpUpdate) {
-
     readyForNtpUpdate = false;
-
     printTime(0);
     updateNTP();
     if (debuging == true) Serial.print(F("Updated Time from NTP Server: "));
@@ -415,12 +433,7 @@ void sunrise( float latitude , float longitude , int time_diff_to_greenwich) {
 
   //Format the sun position
   sun_psition = ("Sun: Azimuth: " + String(az_deg) + " deg / Elevation: " + String(sun_el_deg) + " deg / ");
-  if (sun_el_deg >= 0) {
-    sun_psition += F("Daylight");
-    if (auto_switch_by_sun == true) is_night = 0;
-    if (auto_switch_by_sun == false) is_night = 1;
-  }
-  if (sun_el_deg < 0) is_night = 1;
+  if (sun_el_deg >= 0) sun_psition += F("Daylight");
   if (sun_el_deg >= -6 && sun_el_deg < 0 )sun_psition += F("Twilight");
   if (sun_el_deg >= -12 && sun_el_deg < -6 )sun_psition += F("Astronomical-Twilight");
   if (sun_el_deg < -12) sun_psition += F("Night");
@@ -804,6 +817,7 @@ void set_gpio_pins(int gpio, boolean state) {
     if (output1_state == true) {
       output1_state = state;
       if (debuging == true) Serial.println(F("Switch Relais off"));
+      vfd_on = 0;
       digitalWrite(output1, LOW);
     }
   }
@@ -812,6 +826,7 @@ void set_gpio_pins(int gpio, boolean state) {
     if (output1_state == false) {
       output1_state = state;
       if (debuging == true) Serial.println(F("Switch Relais on"));
+      vfd_on = 1;
       digitalWrite(output1, HIGH);
     }
   }
@@ -994,8 +1009,7 @@ void lookup_commands() {
     load_config(1);
   }
   if (serial_line_0.substring(0, 15) == F("ntp-sync: false")) { //NTP-Time,16,29,31,19,10,1996,0,
-    //delay (1000);
-    Serial.println("ntp-time," + String(hour_utc) + "," + String(minute_) + "," +  String(second_) + "," +  String(day_) + "," +  String(month_) + "," +  String(year_) + "," + String(is_night) + ",");
+    Serial.println("ntp-time," + String(hour_utc) + "," + String(minute_) + "," +  String(second_) + "," +  String(day_) + "," +  String(month_) + "," +  String(year_) + "," + String(vfd_on) + ",");
   }
 }
 //-----------------------------------------------------------------
